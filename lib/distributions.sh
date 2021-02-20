@@ -255,7 +255,7 @@ install_common()
 		if [[ -f ${DEB_STORAGE}/${CHOSEN_KERNEL/image/dtb}_${REVISION}_${ARCH}.deb ]]; then
 			install_deb_chroot "${DEB_STORAGE}/${CHOSEN_KERNEL/image/dtb}_${REVISION}_${ARCH}.deb"
 		fi
-		if [[ $INSTALL_HEADERS == yes ]]; then
+		if [[ $INSTALL_HEADERS == yes || $INCLUDE_ZFS ]]; then
 			install_deb_chroot "${DEB_STORAGE}/${CHOSEN_KERNEL/image/headers}_${REVISION}_${ARCH}.deb"
 		fi
 	else
@@ -264,7 +264,7 @@ install_common()
 		VER="${VER/-$LINUXFAMILY/}"
 		VER="${VER/linux-/}"
 		install_deb_chroot "linux-dtb-${BRANCH}-${LINUXFAMILY}" "remote"
-		[[ $INSTALL_HEADERS == yes ]] && install_deb_chroot "linux-headers-${BRANCH}-${LINUXFAMILY}" "remote"
+		[[ $INSTALL_HEADERS == yes || $INCLUDE_ZFS ]] && install_deb_chroot "linux-headers-${BRANCH}-${LINUXFAMILY}" "remote"
 	fi
 
 	# install board support packages
@@ -328,6 +328,12 @@ install_common()
 	# install wireguard tools
 	if [[ $WIREGUARD == yes ]]; then
 		install_deb_chroot "wireguard-tools --no-install-recommends" "remote"
+	fi
+
+	# install ZFS tools and build module with dkms
+	if [[ $INCLUDE_ZFS == yes ]]; then
+		install_deb_chroot "zfsutils-linux zfs-dkms" "remote"
+		[[ $? -ne 0 ]] && exit_with_error "ZFS module build failed."
 	fi
 
 	# freeze armbian packages

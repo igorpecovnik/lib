@@ -348,9 +348,12 @@ if [[ $KERNEL_ONLY != yes && $BUILD_DESKTOP == no && -z $BUILD_MINIMAL ]]; then
 
 fi
 
-#prevent conflicting setup
+# prevent conflicting setup
 [[ $BUILD_DESKTOP == yes ]] && BUILD_MINIMAL=no
 [[ $BUILD_MINIMAL == yes ]] && EXTERNAL=no
+
+# ZFS support is limited
+[[ $INCLUDE_ZFS == yes ]] && [[ $RELEASE != focal && $RELEASE != buster ]] && exit_with_error "ZFS build is only supported in Focal and Buster"
 
 #shellcheck source=configuration.sh
 source "${SRC}"/lib/configuration.sh
