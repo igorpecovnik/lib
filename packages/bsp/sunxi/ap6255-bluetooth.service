@@ -1,0 +1,14 @@
+[Unit]
+Description=Bluetooth AP6255
+After=bluetooth.target
+
+[Service]
+Type=forking
+ExecStartPre=/usr/sbin/rfkill unblock all
+ExecStart=/usr/bin/brcm_patchram_plus -d --enable_hci --no2bytes --tosleep 200000 --baudrate 1500000 --patchram /lib/firmware/BCM4345C0.hcd /dev/ttyS1
+TimeoutSec=0
+RemainAfterExit=yes
+SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target

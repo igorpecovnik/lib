@@ -1,0 +1,12 @@
+[Unit]
+Description=WIFI AP6256
+
+[Service]
+Type=forking
+ExecStart=/sbin/modprobe bcmdhd firmware_path=/lib/firmware/fw_bcm43456c5_ag.bin nvram_path=/lib/firmware/nvram_ap6256.txt
+TimeoutSec=0
+RemainAfterExit=yes
+SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target

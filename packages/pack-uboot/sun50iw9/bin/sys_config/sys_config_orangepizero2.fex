@@ -1,0 +1,817 @@
+;sunxi platform application
+;---------------------------------------------------------------------------------------------------------
+; 说明： 脚本中的字符串区分大小写，用户可以修改"="后面的数值，但是不要修改前面的字符串
+; 描述gpio的形式：Port:端口+组内序号<功能分配><内部电阻状态><驱动能力><输出电平状态>
+;---------------------------------------------------------------------------------------------------------
+
+[product]
+version = "100"
+machine = "evb"
+
+[platform]
+eraseflag   = 1
+debug_mode  = 3
+
+;----------------------------------------------------------------------------------
+;[target]  system bootup configuration
+;boot_clock	= CPU boot frequency, Unit: MHz
+;storage_type	= boot medium, 0-nand, 1-card0, 2-card2, -1(defualt)auto scan
+;advert_enable  = 0-close advert logo    1-open advert logo     (只有多核启动下有效)
+;----------------------------------------------------------------------------------
+[target]
+boot_clock   	= 1008
+storage_type    = -1
+advert_enable   = 0
+burn_key        = 1
+dragonboard_test= 0
+
+;----------------------------------------------------------------------------------
+;   system configuration
+;   ?
+;dcdc2_vol							---set dcdc2 voltage,mV,500-1200,10mV/step
+;											1220-1540,20mV/step
+;aldo1_vol							---set aldo1 voltage,mV,500-3500,100mV/step
+;dldo1_vol							---set dldo1 voltage,mV,500-3500,100mV/step
+;----------------------------------------------------------------------------------
+[power_sply]
+dcdc2_vol                  = 1001000
+aldo1_vol                  = 1001800
+dldo1_vol                  = 1003300
+
+[axp1530_power_sply]
+dcdc2_vol                  = 1001000
+aldo1_vol                  = 1001800
+dldo1_vol                  = 1003300
+
+[axp806_power_sply]
+dcdce_vol                  = 1003300
+aldo1_vol		   = 1003300
+bldo1_vol		   = 1001800
+
+[card_boot]
+logical_start   = 40960
+sprite_gpio0    =
+
+;----------------------------------------------------------------------------------
+; GPIO init on uboot
+;----------------------------------------------------------------------------------
+[boot_init_gpio]
+boot_init_gpio_used      = 1
+gpio0 =  port:PC12<1><default><default><1>
+gpio1 =  port:PC13<1><default><default><0>
+
+;----------------------------------------------------------------------------------
+;   ir_boot_recovery_used : 1: used this function  0: not used
+;   ir_work_mode          : 模式选择
+;                           0: 刷机,
+;                           1: 一键恢复(uboot阶段),
+;                           2: 安卓recovery,
+;                           3: 安卓恢复出厂设置.
+;                           如果不设置，默认为安卓recovery .
+;   ir_press_times        : ir遥控器连续按几次才生效,如果不设置默认为按1次生效
+;   ir_detect_time        : ir遥控检测时间,单位:ms,如果不设置默认为3000ms
+;   ir_key_no_duplicate   : ir遥控按键是否可重复，0：可重复(默认)，1：不可重复；
+;                           不可重复表示一个按键无论被按下几次，都只算ir_press_times的一次；
+;                           不可重复的应用场景为组合按键功能，如:交替按下'菜单键'和'音量-键'进入安卓recovery.
+;   ir_recovery_key_code0 : ir check key code
+;   ir_addr_code0         : ir key addr
+;                           you can increase ir support num, like:
+;                           ir_recovery_key_code1, or 2, 3, but limit to 16
+;----------------------------------------------------------------------------------
+
+[ir_boot_recovery]
+ir_boot_recovery_used       = 1
+ir_work_mode                = 1
+ir_press_times              = 2
+ir_detect_time              = 1
+ir_key_no_duplicate         = 0
+ir_recovery_key_code0       = 0x11
+ir_addr_code0               = 0xfe01
+ir_recovery_key_code1       = 0x19
+ir_addr_code1               = 0xfe01
+ir_recovery_key_code2       = 0x4c
+ir_addr_code2               = 0xfe01
+ir_recovery_key_code3       = 0x00
+ir_addr_code3               = 0xfe01
+
+
+;----------------------------------------------------------------------------------
+;   recovery_key_used :  模块使能端，    1：开启，0：关闭
+;   press_mode_enable :  长短按模式使能，1：开启，0：关闭
+;                        a)如果开启了该模式，则key_work_mode失效，short_press_mode和long_press_mode生>效,
+    ;                      recovery按键可以通过长按和短按来触发两种不同的模式;
+;                        b)如果关闭了该模式，则key_work_mode生效，recovery按键只能触发一种模式.
+;   key_work_mode     :  模式选择
+;                        0: 刷机,
+;                        1: 一键恢复(uboot阶段),
+;                        2: 安卓recovery,
+;                        3: 安卓恢复出厂设置.
+;                        如果不设置，模式为安卓recovery.
+;   short_press_mode  :  长按触发的模式，选项同上.
+;   long_press_mode   :  短按触发的模式，选项同上.
+;   key_press_time    :  定义长按的时间，单位:毫秒.
+;   recovery_key      :  按键配置.
+;----------------------------------------------------------------------------------
+[key_boot_recovery]
+recovery_key_used       = 1
+press_mode_enable       = 0
+key_work_mode           = 0
+short_press_mode        = 0
+long_press_mode         = 1
+key_press_time          = 2000
+recovery_key =
+
+
+;---------------------------------------------------------------------------------------------------------
+; if 1 == standby_mode, then support super standby;
+; else, support normal standby.
+;---------------------------------------------------------------------------------------------------------
+[pm_para]
+standby_mode		= 1
+
+[card0_boot_para]
+card_ctrl       = 0
+card_high_speed = 1
+card_line       = 4
+sdc_d1          = port:PF0<2><1><3><default>
+sdc_d0          = port:PF1<2><1><3><default>
+sdc_clk         = port:PF2<2><1><3><default>
+sdc_cmd         = port:PF3<2><1><3><default>
+sdc_d3          = port:PF4<2><1><3><default>
+sdc_d2          = port:PF5<2><1><3><default>
+;sdc_type	= "tm1"
+
+[card2_boot_para]
+card_ctrl       = 2
+card_high_speed = 1
+card_line       = 8
+sdc_clk         = port:PC5<3><1><3><default>
+sdc_cmd         = port:PC6<3><1><3><default>
+sdc_d0          = port:PC10<3><1><3><default>
+sdc_d1          = port:PC13<3><1><3><default>
+sdc_d2          = port:PC15<3><1><3><default>
+sdc_d3          = port:PC8<3><1><3><default>
+sdc_d4          = port:PC9<3><1><3><default>
+sdc_d5          = port:PC11<3><1><3><default>
+sdc_d6          = port:PC14<3><1><3><default>
+sdc_d7          = port:PC16<3><1><3><default>
+sdc_emmc_rst    = port:PC1<3><1><3><default>
+sdc_ds          = port:PC0<3><2><3><default>
+sdc_ex_dly_used = 2
+sdc_io_1v8	= 1
+;sdc_dis_host_caps = 0x100
+;sdc_type	= "tm4"
+
+[gpio_bias]
+pc_bias		= 1800
+
+[twi_para]
+twi_port        = 0
+twi_scl         = port:PH14<2><default><default><default>
+twi_sda         = port:PH15<2><default><default><default>
+
+[auto_print]
+auto_print_used = 1
+
+[uart_para]
+uart_debug_port = 0
+uart_debug_tx   = port:PH00<2><1><default><default>
+uart_debug_rx   = port:PH01<2><1><default><default>
+
+[jtag_para]
+jtag_enable     = 0
+jtag_ms         = port:PH9<3><default><default><default>
+jtag_ck         = port:PH10<3><default><default><default>
+jtag_do         = port:PH11<3><default><default><default>
+jtag_di         = port:PH12<3><default><default><default>
+
+[clock]
+pll4            = 300
+pll6            = 600
+pll8            = 360
+pll9            = 297
+pll10           = 264
+
+;*****************************************************************************
+;
+;dram select configuration
+;
+;select_mode	:	dram模式选择,	0:不进行自动识别
+;					1:gpio识别模式(dram_para, dram_para1-15, 共16组有效)
+;					2:gpadc识别模式(dram_para, dram_para1-7, 共8组有效)
+;					3:1个IO+gpadc识别模式(dram_para, dram_para1-15, 共16组有效)。其中IO配置优先级按select_gpio0>select_gpio1>select_gpio2>select_gpio3
+;gpadc_channel	:	选择gpadc通道	有效值(0-3)
+;select_gpio1-4	:	选择gpio pin
+;*****************************************************************************
+
+
+[dram_select_para]
+select_mode	= 0
+gpadc_channel	= 1
+select_gpio0	=
+select_gpio1	=
+select_gpio2	=
+select_gpio3	=
+
+;*****************************************************************************
+;sdram configuration
+;
+;*****************************************************************************
+[dram_para]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+
+[dram_para1]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para2]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para3]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para4]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para5]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para6]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para7]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para8]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para9]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para10]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para11]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para12]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para13]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para14]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+[dram_para15]
+
+dram_clk       = 720
+dram_type      = 3
+dram_dx_odt    = 0x08080808
+dram_dx_dri    = 0x0e0e0e0e
+dram_ca_dri    = 0x0e0e
+dram_odt_en    = 1
+dram_para1     = 0x30FA
+dram_para2     = 0x1000
+dram_mr0       = 0x840
+dram_mr1       = 0x4
+dram_mr2       = 0x8
+dram_mr3       = 0x0
+dram_mr4       = 0x0
+dram_mr5       = 0x0
+dram_mr6       = 0x0
+dram_mr11      = 0x0
+dram_mr12      = 0x0
+dram_mr13      = 0x0
+dram_mr14      = 0x0
+dram_mr16      = 0x0
+dram_mr17      = 0x0
+dram_mr22      = 0x0
+dram_tpr0      = 0x0
+dram_tpr1      = 0x0
+dram_tpr2      = 0x0
+dram_tpr3      = 0x0
+dram_tpr6      = 0x33808080
+dram_tpr10     = 0x00f83438
+dram_tpr11     = 0x0
+dram_tpr12     = 0x0
+dram_tpr13     = 0x40
+
+;----------------------------------------------------------------------------------
+;os life cycle para configuration
+;----------------------------------------------------------------------------------
+
+;----------------------------------------------------------------------------------
+;uart configuration
+;uart_type ---  2 (2 wire), 4 (4 wire), 8 (8 wire, full function)
+;----------------------------------------------------------------------------------
+[uart0]
+uart0_used       = 1
+uart0_port       = 0
+uart0_type       = 2
+uart0_tx         = port:PH00<2><1><default><default>
+uart0_rx         = port:PH01<2><1><default><default>
+
+[nand0_para]
+nand0_support_2ch    = 0
+
+nand0_used          = 0
+nand0_we            = port:PC00<2><0><1><default>
+nand0_ale           = port:PC01<2><0><1><default>
+nand0_cle           = port:PC02<2><0><1><default>
+nand0_ce0           = port:PC03<2><1><1><default>
+nand0_nre           = port:PC04<2><0><1><default>
+nand0_rb0           = port:PC05<2><1><1><default>
+nand0_d0           = port:PC06<2><0><1><default>
+nand0_d1           = port:PC07<2><0><1><default>
+nand0_d2            = port:PC08<2><0><1><default>
+nand0_d3            = port:PC09<2><0><1><default>
+nand0_d4            = port:PC10<2><0><1><default>
+nand0_d5            = port:PC11<2><0><1><default>
+nand0_d6            = port:PC12<2><0><1><default>
+nand0_d7            = port:PC13<2><0><1><default>
+nand0_ndqs            = port:PC14<2><0><1><default>
+nand0_ce1            = port:PC15<2><1><1><default>
+nand0_rb1          = port:PC16<2><1><1><default>
+
+nand0_regulator1 		= "vcc-nand"
+nand0_regulator2 		= "none"
+nand0_cache_level = 0x55aaaa55
+nand0_flush_cache_num = 0x55aaaa55
+nand0_capacity_level = 0x55aaaa55
+nand0_id_number_ctl = 0x55aaaa55
+nand0_print_level = 0x55aaaa55
+nand0_p0 = 0x55aaaa55
+nand0_p1 = 0x55aaaa55
+nand0_p2 = 0x55aaaa55
+nand0_p3 = 0x55aaaa55
+
+[secure]
+dram_region_mbytes       = 80
+drm_region_mbytes        = 0
+drm_region_start_mbytes  = 0

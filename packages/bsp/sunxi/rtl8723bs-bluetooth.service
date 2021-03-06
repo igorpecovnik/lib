@@ -1,0 +1,15 @@
+[Unit]
+Description=Bluetooth RTL8723BS
+After=bluetooth.target
+
+[Service]
+Type=forking
+ExecStartPre=/usr/sbin/rfkill unblock all
+ExecStart=/usr/bin/rtk_hciattach -n -s 115200 /dev/ttyS1 rtk_h5
+TimeoutSec=0
+RemainAfterExit=yes
+SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target
+

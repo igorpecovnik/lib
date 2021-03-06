@@ -1,9 +1,10 @@
 # Allwinner H616 quad core 512MB/1GB RAM SoC WiFi SPI USB-C
 BOARD_NAME="Orange Pi Zero2"
-BOARDFAMILY="sun50iw6"
+BOARDFAMILY="sun50iw9"
 BOOTCONFIG="orangepi_zero2_defconfig"
+MODULES_LEGACY="uwe5622_bsp_sdio sprdbt_tty sprdwl_ng"
 MODULES_BLACKLIST="lima"
 DEFAULT_CONSOLE="serial"
 BUILD_DESKTOP="no"
 SERIALCON="ttyS0"
-KERNEL_TARGET="current,dev"
+KERNEL_TARGET="legacy,current,dev"

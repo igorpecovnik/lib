@@ -1,0 +1,621 @@
+state.audiocodec {
+	control.1 {
+		iface MIXER
+		name 'codec hub mode'
+		value hub_disable
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 null
+			item.1 hub_disable
+			item.2 hub_enable
+		}
+	}
+	control.2 {
+		iface MIXER
+		name 'digital volume'
+		value 0
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 63'
+			dbmin -9999999
+			dbmax 4121460
+			dbvalue.0 -9999999
+		}
+	}
+	control.3 {
+		iface MIXER
+		name 'LINEIN to output mixer gain control'
+		value 3
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 7'
+			dbmin -450
+			dbmax 600
+			dbvalue.0 0
+		}
+	}
+	control.4 {
+		iface MIXER
+		name 'FMIN to output mixer gain control'
+		value 4
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 7'
+			dbmin -450
+			dbmax 600
+			dbvalue.0 150
+		}
+	}
+	control.5 {
+		iface MIXER
+		name 'LINEOUT volume'
+		value 31
+		comment {
+			access 'read write'
+			type INTEGER
+			count 1
+			range '0 - 31'
+			dbmin -9999999
+			dbmax 150
+			dbvalue.0 150
+		}
+	}
+	control.6 {
+		iface MIXER
+		name 'LINEOUT Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.7 {
+		iface MIXER
+		name 'Left Output Mixer DACL Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.8 {
+		iface MIXER
+		name 'Left Output Mixer DACR Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.9 {
+		iface MIXER
+		name 'Left Output Mixer FMINL Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.10 {
+		iface MIXER
+		name 'Left Output Mixer LINEINL Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.11 {
+		iface MIXER
+		name 'Right Output Mixer DACL Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.12 {
+		iface MIXER
+		name 'Right Output Mixer DACR Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.13 {
+		iface MIXER
+		name 'Right Output Mixer FMINR Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.14 {
+		iface MIXER
+		name 'Right Output Mixer LINEINR Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.15 {
+		iface MIXER
+		name 'Left LINEOUT Mux'
+		value LOMixer
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 LOMixer
+			item.1 LROMixer
+		}
+	}
+	control.16 {
+		iface MIXER
+		name 'Right LINEOUT Mux'
+		value ROMixer
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 ROMixer
+			item.1 LROMixer
+		}
+	}
+}
+state.sndahub {
+	control.1 {
+		iface MIXER
+		name 'ahub audio format Function'
+		value null
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 null
+			item.1 pcm
+			item.2 AC3
+			item.3 MPEG1
+			item.4 MP3
+			item.5 MPEG2
+			item.6 AAC
+			item.7 DTS
+			item.8 ATRAC
+			item.9 ONE_BIT_AUDIO
+			item.10 DOLBY_DIGITAL_PLUS
+			item.11 DTS_HD
+			item.12 MAT
+			item.13 WMAPRO
+		}
+	}
+	control.2 {
+		iface MIXER
+		name 'I2S0IN Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.3 {
+		iface MIXER
+		name 'I2S0OUT Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.4 {
+		iface MIXER
+		name 'I2S1IN Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.5 {
+		iface MIXER
+		name 'I2S1OUT Switch'
+		value true
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.6 {
+		iface MIXER
+		name 'I2S2IN Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.7 {
+		iface MIXER
+		name 'I2S2OUT Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.8 {
+		iface MIXER
+		name 'I2S3IN Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.9 {
+		iface MIXER
+		name 'I2S3OUT Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.10 {
+		iface MIXER
+		name 'DAM0IN Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.11 {
+		iface MIXER
+		name 'DAM1IN Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.12 {
+		iface MIXER
+		name 'DAM0OUT Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.13 {
+		iface MIXER
+		name 'DAM1OUT Switch'
+		value false
+		comment {
+			access 'read write'
+			type BOOLEAN
+			count 1
+		}
+	}
+	control.14 {
+		iface MIXER
+		name 'APBIF0 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.15 {
+		iface MIXER
+		name 'APBIF1 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.16 {
+		iface MIXER
+		name 'APBIF2 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.17 {
+		iface MIXER
+		name 'I2S0 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.18 {
+		iface MIXER
+		name 'I2S1 Src Select'
+		value APBIF_TXDIF0
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.19 {
+		iface MIXER
+		name 'I2S2 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.20 {
+		iface MIXER
+		name 'I2S3 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.21 {
+		iface MIXER
+		name 'DAM0Chan0 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.22 {
+		iface MIXER
+		name 'DAM0Chan1 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.23 {
+		iface MIXER
+		name 'DAM0Chan2 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.24 {
+		iface MIXER
+		name 'DAM1Chan0 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.25 {
+		iface MIXER
+		name 'DAM1Chan1 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+	control.26 {
+		iface MIXER
+		name 'DAM1Chan2 Src Select'
+		value NONE
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 NONE
+			item.1 APBIF_TXDIF0
+			item.2 APBIF_TXDIF1
+			item.3 APBIF_TXDIF2
+			item.4 I2S0_TXDIF
+			item.5 I2S1_TXDIF
+			item.6 I2S2_TXDIF
+			item.7 I2S3_TXDIF
+			item.8 DAM0_TXDIF
+			item.9 DAM1_TXDIF
+		}
+	}
+}
+state.sndhdmi {
+	control.1 {
+		iface MIXER
+		name 'hdmi audio format Function'
+		value pcm
+		comment {
+			access 'read write'
+			type ENUMERATED
+			count 1
+			item.0 null
+			item.1 pcm
+			item.2 AC3
+			item.3 MPEG1
+			item.4 MP3
+			item.5 MPEG2
+			item.6 AAC
+			item.7 DTS
+			item.8 ATRAC
+			item.9 ONE_BIT_AUDIO
+			item.10 DOLBY_DIGITAL_PLUS
+			item.11 DTS_HD
+			item.12 MAT
+			item.13 WMAPRO
+		}
+	}
+}
+state.snddaudio2 {
+	control {
+	}
+}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Init Hdmi Audio
+After=bluetooth.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/inithdmiaudio /usr/share/sounds/alsa/Rear_Left.wav -D 2
+TimeoutSec=0
+RemainAfterExit=yes
+SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target

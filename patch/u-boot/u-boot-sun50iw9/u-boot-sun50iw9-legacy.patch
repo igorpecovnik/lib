@@ -1,0 +1,54 @@
+From b269596fba286cf7f3ca95bda9aab8042be782eb Mon Sep 17 00:00:00 2001
+From: Igor Pecovnik <igor.pecovnik@gmail.com>
+Date: Mon, 8 Feb 2021 15:53:02 +0100
+Subject: [PATCH] Patching something
+
+Signed-off-by: Igor Pecovnik <igor.pecovnik@gmail.com>
+---
+ cmd/Kconfig                              | 2 +-
+ drivers/video/sunxi/bootGUI/dev_manage.c | 2 +-
+ drivers/video/sunxi/bootGUI/fb_con.c     | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/cmd/Kconfig b/cmd/Kconfig
+index aaa14c2..cc88650 100644
+--- a/cmd/Kconfig
++++ b/cmd/Kconfig
+@@ -48,7 +48,7 @@ config SYS_LONGHELP
+ 
+ config SYS_PROMPT
+ 	string "Shell prompt"
+-	default "orangepi# "
++	default "armbian# "
+ 	help
+ 	  This string is displayed in the command line to the left of the
+ 	  cursor.
+diff --git a/drivers/video/sunxi/bootGUI/dev_manage.c b/drivers/video/sunxi/bootGUI/dev_manage.c
+index 0da45a2..3684efa 100644
+--- a/drivers/video/sunxi/bootGUI/dev_manage.c
++++ b/drivers/video/sunxi/bootGUI/dev_manage.c
+@@ -25,7 +25,7 @@
+ 
+ #define DISPLAY_PARTITION_NAME "Reserve0"
+ //#define DISPLAY_RSL_FILENAME "/boot/disp_rsl.fex"
+-#define DISPLAY_RSL_FILENAME "/boot/orangepiEnv.txt"
++#define DISPLAY_RSL_FILENAME "/boot/armbianEnv.txt"
+ 
+ 
+ enum {
+diff --git a/drivers/video/sunxi/bootGUI/fb_con.c b/drivers/video/sunxi/bootGUI/fb_con.c
+index cd88840..4fff56c 100644
+--- a/drivers/video/sunxi/bootGUI/fb_con.c
++++ b/drivers/video/sunxi/bootGUI/fb_con.c
+@@ -23,7 +23,7 @@
+ #include "video_hal.h"
+ #include "video_misc_hal.h"
+ 
+-#define DISPLAY_FB_FILENAME "/boot/orangepiEnv.txt"
++#define DISPLAY_FB_FILENAME "/boot/armbianEnv.txt"
+ 
+ static framebuffer_t s_fb_list[FRAMEBUFFER_NUM];
+ 
+-- 
+Created with Armbian build tools https://github.com/armbian/build
+

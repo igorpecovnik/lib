@@ -1,0 +1,5 @@
+verbosity=1
+console=both
+disp_mode=1080p60
+fb0_width=1280
+fb0_height=720
