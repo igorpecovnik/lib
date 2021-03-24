@@ -56,6 +56,16 @@ elif [[ $BOARD == rockpi-4* ]]; then
 	DDR_BLOB='rk33/rk3399_ddr_933MHz_v1.20.bin' # 1GB model does not boot with later versions
 	MINILOADER_BLOB='rk33/rk3399_miniloader_v1.19.bin'
 	BL31_BLOB='rk33/rk3399_bl31_v1.30.elf'
+	
+elif [[ $BOARD == orangepi4 ]]; then
+
+	BOOT_USE_BLOBS=yes
+	BOOT_SUPPORT_SPI=yes
+	BOOT_SOC=rk3399
+	DDR_BLOB='rk33/rk3399_ddr_933MHz_v1.24.bin' # Orange Pi 4 does it has 4gb standard and is cheaper and b has also a ai  :)
+	MINILOADER_BLOB='rk33/rk3399_miniloader_v1.19.bin'
+	BL31_BLOB='rk33/rk3399_bl31_v1.30.elf'
+
 
 elif [[ $BOARD == station-p1 ]]; then
 
