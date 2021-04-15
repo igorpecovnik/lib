@@ -435,7 +435,7 @@ fingerprint_image()
 	display_alert "Fingerprinting"
 	cat <<-EOF > "${1}"
 	--------------------------------------------------------------------------------
-	Title:			Armbian $REVISION ${BOARD^} $DISTRIBUTION $RELEASE $BRANCH
+	Title:			${VENDOR} $REVISION ${BOARD^} $DISTRIBUTION $RELEASE $BRANCH
 	Kernel:			Linux $VER
 	Build date:		$(date +'%d.%m.%Y')
 	Maintainer:		$MAINTAINER <$MAINTAINERMAIL>
@@ -449,7 +449,7 @@ fingerprint_image()
 	if [ -n "$2" ]; then
 	cat <<-EOF >> "${1}"
 	--------------------------------------------------------------------------------
-	Partitioning configuration:
+	Partitioning configuration: $IMAGE_PARTITION_TABLE
 	Root partition type: $ROOTFS_TYPE
 	Boot partition type: ${BOOTFS_TYPE:-(none)}
 	User provided boot partition size: ${BOOTSIZE:-0}
@@ -1279,7 +1279,7 @@ download_and_verify()
 	if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
 		display_alert "Timeout from $server" "retrying" "info"
 		server="https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/"
-		
+
 		# switch to another china mirror if tuna timeouts
 		timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename} 2>&1 >/dev/null
 		if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
@@ -1287,7 +1287,7 @@ download_and_verify()
 			server="https://mirrors.bfsu.edu.cn/armbian-releases/"
 		fi
 	fi
-	
+
 
 	# check if file exists on remote server before running aria2 downloader
 	[[ ! `timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename}` ]] && return
