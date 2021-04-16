@@ -347,7 +347,7 @@ fi
 
 AGGREGATION_SEARCH_ROOT_ABSOLUTE_DIRS="
 ${SRC}/config
-${SRC}/config/optional/_any_board/_configs
+${SRC}/config/optional/_any_board/_config
 ${SRC}/config/optional/architectures/${ARCH}/_config
 ${SRC}/config/optional/families/${LINUXFAMILY}/_config
 ${SRC}/config/optional/boards/${BOARD}/_config

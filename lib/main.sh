@@ -388,13 +388,17 @@ BOOTSOURCEDIR="${BOOTDIR}/$(branch2dir "${BOOTBRANCH}")"
 LINUXSOURCEDIR="${KERNELDIR}/$(branch2dir "${KERNELBRANCH}")"
 [[ -n $ATFSOURCE ]] && ATFSOURCEDIR="${ATFDIR}/$(branch2dir "${ATFBRANCH}")"
 
+BSP_CLI_PACKAGE_NAME="armbian-bsp-cli-${BOARD}"
+BSP_CLI_PACKAGE_FULLNAME="${BSP_CLI_PACKAGE_NAME}_${ARCH}"
+BSP_DESKTOP_PACKAGE_NAME="armbian-bsp-desktop-${BOARD}"
+BSP_DESKTOP_PACKAGE_FULLNAME="${BSP_DESKTOP_PACKAGE_NAME}_${ARCH}"
 # define package names
 DEB_BRANCH=${BRANCH//default}
 # if not empty, append hyphen
 DEB_BRANCH=${DEB_BRANCH:+${DEB_BRANCH}-}
 CHOSEN_UBOOT=linux-u-boot-${DEB_BRANCH}${BOARD}
 CHOSEN_KERNEL=linux-image-${DEB_BRANCH}${LINUXFAMILY}
-CHOSEN_ROOTFS=linux-${RELEASE}-root-${DEB_BRANCH}${BOARD}
+CHOSEN_ROOTFS=${BSP_CLI_PACKAGE_NAME}
 CHOSEN_DESKTOP=armbian-${RELEASE}-desktop-${DESKTOP_ENVIRONMENT}
 CHOSEN_KSRC=linux-source-${BRANCH}-${LINUXFAMILY}
 
@@ -488,10 +492,11 @@ fi
 overlayfs_wrapper "cleanup"
 
 # create board support package
-[[ -n $RELEASE && ! -f ${DEB_STORAGE}/$RELEASE/${CHOSEN_ROOTFS}_${REVISION}_${ARCH}.deb ]] && create_board_package
+[[ -n $RELEASE && ! -f ${DEB_STORAGE}/$RELEASE/${BSP_CLI_PACKAGE_FULLNAME}.deb ]] && create_board_package
 
 # create desktop package
 [[ -n $RELEASE && $DESKTOP_ENVIRONMENT && ! -f ${DEB_STORAGE}/$RELEASE/${CHOSEN_DESKTOP}_${REVISION}_all.deb ]] && create_desktop_package
+[[ -n $RELEASE && $DESKTOP_ENVIRONMENT && ! -f ${DEB_STORAGE}/${RELEASE}/${BSP_DESKTOP_PACKAGE_FULLNAME}.deb ]] && create_bsp_desktop_package
 
 # build additional packages
 [[ $EXTERNAL_NEW == compile ]] && chroot_build_packages

@@ -20,7 +20,7 @@ create_board_package()
 	bsptempdir=$(mktemp -d)
 	chmod 700 ${bsptempdir}
 	trap "rm -rf \"${bsptempdir}\" ; exit 0" 0 1 2 3 15
-	local destination=${bsptempdir}/${RELEASE}/${CHOSEN_ROOTFS}_${REVISION}_${ARCH}
+	local destination=${bsptempdir}/${RELEASE}/${BSP_CLI_PACKAGE_FULLNAME}
 	mkdir -p "${destination}"/DEBIAN
 	cd $destination
 
@@ -46,7 +46,7 @@ create_board_package()
 	# Depends: linux-base is needed for "linux-version" command in initrd cleanup script
 	# Depends: fping is needed for armbianmonitor to upload armbian-hardware-monitor.log
 	cat <<-EOF > "${destination}"/DEBIAN/control
-	Package: linux-${RELEASE}-root-${DEB_BRANCH}${BOARD}
+	Package: ${BSP_CLI_PACKAGE_NAME}
 	Version: $REVISION
 	Architecture: $ARCH
 	Maintainer: $MAINTAINER <$MAINTAINERMAIL>
@@ -120,18 +120,19 @@ create_board_package()
 	[ -f "/usr/lib/armbian/firstrun-config.sh" ] && rm /usr/lib/armbian/firstrun-config.sh
 	# fix for https://bugs.launchpad.net/ubuntu/+source/lightdm-gtk-greeter/+bug/1897491
 	[ -d "/var/lib/lightdm" ] && (chown -R lightdm:lightdm /var/lib/lightdm ; chmod 0750 /var/lib/lightdm)
-	dpkg-divert --quiet --package linux-${RELEASE}-root-${DEB_BRANCH}${BOARD} --add --rename --divert /etc/mpv/mpv-dist.conf /etc/mpv/mpv.conf
+	dpkg-divert --quiet --package ${BSP_CLI_PACKAGE_NAME} --add --rename --divert /etc/mpv/mpv-dist.conf /etc/mpv/mpv.conf
 	exit 0
 	EOF
 
 	chmod 755 "${destination}"/DEBIAN/preinst
 
+	display_alert "... ?"
 	# postrm script
 	cat <<-EOF > "${destination}"/DEBIAN/postrm
 	#!/bin/sh
 	if [ remove = "\$1" ] || [ abort-install = "\$1" ]; then
 
-	    dpkg-divert --quiet --package linux-${RELEASE}-root-${DEB_BRANCH}${BOARD} --remove --rename	--divert /etc/mpv/mpv-dist.conf /etc/mpv/mpv.conf
+	    dpkg-divert --quiet --package ${BSP_CLI_PACKAGE_NAME} --remove --rename	--divert /etc/mpv/mpv-dist.conf /etc/mpv/mpv.conf
 	    systemctl disable armbian-hardware-monitor.service armbian-hardware-optimize.service >/dev/null 2>&1
 	    systemctl disable armbian-zram-config.service armbian-ramlog.service >/dev/null 2>&1
 
@@ -257,9 +258,11 @@ fi
 	#cat <<-EOF > "${destination}"/DEBIAN/conffiles
 	#EOF
 
+	display_alert "... !"
 	# copy common files from a premade directory structure
 	rsync -a ${SRC}/packages/bsp/common/* ${destination}
 
+	display_alert "... !?"
 	# trigger uInitrd creation after installation, to apply
 	# /etc/initramfs/post-update.d/99-uboot
 	cat <<-EOF > "${destination}"/DEBIAN/triggers

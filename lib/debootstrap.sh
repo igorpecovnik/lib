@@ -276,6 +276,7 @@ create_rootfs_cache()
 				${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
 
 			[[ ${PIPESTATUS[0]} -ne 0 ]] && exit_with_error "Installation of Armbian desktop packages for ${BRANCH} ${BOARD} ${RELEASE} ${DESKTOP_APPGROUPS_SELECTED} ${DESKTOP_ENVIRONMENT} ${BUILD_MINIMAL} failed"
+			
 		fi
 
 		# Remove packages from packages.uninstall
