@@ -72,8 +72,8 @@ elif [[ $BOARD == rockpi-n10* ]]; then
 	BOOT_SUPPORT_SPI=yes
 	BOOT_SOC=rk3399pro
 	DDR_BLOB='rk33/rk3399pro_npu_ddr_933MHz_v1.02.bin'
-	MINILOADER_BLOB='rk33/rk3399pro_miniloader_v1.15.bin'
-	BL31_BLOB='rk33/rk3399pro_bl31_v1.22.elf'
+	MINILOADER_BLOB='rk33/rk3399pro_miniloader_v1.26.bin'
+	BL31_BLOB='rk33/rk3399pro_bl31_v1.35.elf'
 
 elif [[ $BOARD == rockpro64 ]]; then
 
