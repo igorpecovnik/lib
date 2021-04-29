@@ -203,66 +203,7 @@ chroot_build_packages()
 				[[ -v $dist_builddeps_name ]] && package_builddeps="${package_builddeps} ${!dist_builddeps_name}"
 
 				# create build script
-				cat <<-EOF > "${target_dir}"/root/build.sh
-				#!/bin/bash
-				export PATH="/usr/lib/ccache:\$PATH"
-				export HOME="/root"
-				export DEBIAN_FRONTEND="noninteractive"
-				export DEB_BUILD_OPTIONS="nocheck noautodbgsym"
-				export CCACHE_TEMPDIR="/tmp"
-				# distcc is disabled to prevent compilation issues due to different host and cross toolchain configurations
-				#export CCACHE_PREFIX="distcc"
-				# uncomment for debug
-				#export CCACHE_RECACHE="true"
-				#export CCACHE_DISABLE="true"
-				export DISTCC_HOSTS="$distcc_bindaddr"
-				export DEBFULLNAME="$MAINTAINER"
-				export DEBEMAIL="$MAINTAINERMAIL"
-				$(declare -f display_alert)
-				cd /root/build
-				if [[ -n "${package_builddeps}" ]]; then
-					# can be replaced with mk-build-deps
-					deps=()
-					installed=\$(dpkg-query -W -f '\${db:Status-Abbrev}|\${binary:Package}\n' '*' 2>/dev/null | grep '^ii' | awk -F '|' '{print \$2}' | cut -d ':' -f 1)
-					for packet in $package_builddeps; do grep -q -x -e "\$packet" <<< "\$installed" || deps+=("\$packet"); done
-					if [[ \${#deps[@]} -gt 0 ]]; then
-						display_alert "Installing build dependencies"
-						apt-get -y -q update
-						apt-get -y -q --no-install-recommends --show-progress -o DPKG::Progress-Fancy=1 install "\${deps[@]}"
-					fi
-				fi
-				display_alert "Copying sources"
-				rsync -aq /root/sources/"${package_name}" /root/build/
-				cd /root/build/"${package_name}"
-				# copy overlay / "debianization" files
-				[[ -d "/root/overlay/${package_name}/" ]] && rsync -aq /root/overlay/"${package_name}" /root/build/
-				# set upstream version
-				[[ -n "${package_upstream_version}" ]] && debchange --preserve --newversion "${package_upstream_version}" "Import from upstream"
-				# set local version
-				# debchange -l~armbian${REVISION}-${builddate}+ "New Armbian release"
-				debchange -l~armbian"${REVISION}"+ "New Armbian release"
-				display_alert "Building package"
-				dpkg-buildpackage -b -uc -us -j2
-				if [[ \$? -eq 0 ]]; then
-					cd /root/build
-					# install in chroot if other libraries depend on them
-					if [[ -n "$package_install_chroot" ]]; then
-						display_alert "Installing packages"
-						for p in $package_install_chroot; do
-							dpkg -i \${p}_*.deb
-						done
-					fi
-					display_alert "Done building" "$package_name $release/$arch" "ext"
-					ls *.deb 2>/dev/null
-					mv *.deb /root 2>/dev/null
-					exit 0
-				else
-					display_alert "Failed building" "$package_name $release/$arch" "err"
-					exit 2
-				fi
-				EOF
-
-				chmod +x "${target_dir}"/root/build.sh
+				create_build_script
 
 				fetch_from_repo "$package_repo" "extra/$package_name" "$package_ref"
 
@@ -293,6 +234,92 @@ chroot_build_packages()
 		done
 	fi
 } #############################################################################
+
+# create build script
+create_build_script ()
+{
+	cat <<-EOF > "${target_dir}"/root/build.sh
+	#!/bin/bash
+	export PATH="/usr/lib/ccache:\$PATH"
+	export HOME="/root"
+	export DEBIAN_FRONTEND="noninteractive"
+	export DEB_BUILD_OPTIONS="nocheck noautodbgsym"
+	export CCACHE_TEMPDIR="/tmp"
+	# distcc is disabled to prevent compilation issues due
+	# to different host and cross toolchain configurations
+	#export CCACHE_PREFIX="distcc"
+	# uncomment for debug
+	#export CCACHE_RECACHE="true"
+	#export CCACHE_DISABLE="true"
+	export DISTCC_HOSTS="$distcc_bindaddr"
+	export DEBFULLNAME="$MAINTAINER"
+	export DEBEMAIL="$MAINTAINERMAIL"
+	$(declare -f display_alert)
+
+	cd /root/build
+	if [[ -n "${package_builddeps}" ]]; then
+		# can be replaced with mk-build-deps
+		deps=()
+		installed=\$(
+			dpkg-query -W -f '\${db:Status-Abbrev}|\${binary:Package}\n' '*' 2>/dev/null | \
+			grep '^ii' | \
+			awk -F '|' '{print \$2}' | \
+			cut -d ':' -f 1
+		)
+
+		for packet in $package_builddeps
+		do
+			grep -q -x -e "\$packet" <<< "\$installed" || deps+=("\$packet")
+		done
+
+		if [[ \${#deps[@]} -gt 0 ]]; then
+			display_alert "Installing build dependencies"
+			apt-get -y -q update
+			apt-get -y -q \
+					--no-install-recommends \
+					--show-progress \
+					-o DPKG::Progress-Fancy=1 install "\${deps[@]}"
+		fi
+	fi
+
+	display_alert "Copying sources"
+	rsync -aq /root/sources/"${package_name}" /root/build/
+
+	cd /root/build/"${package_name}"
+	# copy overlay / "debianization" files
+	[[ -d "/root/overlay/${package_name}/" ]] && rsync -aq /root/overlay/"${package_name}" /root/build/
+
+	# set upstream version
+	[[ -n "${package_upstream_version}" ]] && debchange --preserve --newversion "${package_upstream_version}" "Import from upstream"
+
+	# set local version
+	# debchange -l~armbian${REVISION}-${builddate}+ "New Armbian release"
+	debchange -l~armbian"${REVISION}"+ "New Armbian release"
+
+	display_alert "Building package"
+	dpkg-buildpackage -b -uc -us -j2
+
+	if [[ \$? -eq 0 ]]; then
+		cd /root/build
+		# install in chroot if other libraries depend on them
+		if [[ -n "$package_install_chroot" ]]; then
+			display_alert "Installing packages"
+			for p in $package_install_chroot; do
+				dpkg -i \${p}_*.deb
+			done
+		fi
+		display_alert "Done building" "$package_name $release/$arch" "ext"
+		ls *.deb 2>/dev/null
+		mv *.deb /root 2>/dev/null
+		exit 0
+	else
+		display_alert "Failed building" "$package_name $release/$arch" "err"
+		exit 2
+	fi
+	EOF
+
+	chmod +x "${target_dir}"/root/build.sh
+}
 
 # chroot_installpackages_local
 #
