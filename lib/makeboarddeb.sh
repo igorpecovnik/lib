@@ -300,7 +300,14 @@ fi
 	sed -i 's/#no-auto-down/no-auto-down/g' "${destination}"/etc/network/interfaces.default
 
 	# execute $LINUXFAMILY-specific tweaks
+	# this is invoked directly, and not as a hook. it is pre-fragments, and the families are supposed
+	# to implement them directly. We have a post_ hook next that config can use to override.
 	[[ $(type -t family_tweaks_bsp) == function ]] && family_tweaks_bsp
+
+	call_hook_point "post_family_tweaks_bsp" << 'MARKDOWN_DOCS_FOR_HOOK'
+*family_tweaks_bsp overrrides what is in the config, so give it a chance to override the family tweaks*
+This should be implemented by the config to tweak the BSP, after the board or family has had the chance to.
+MARKDOWN_DOCS_FOR_HOOK
 
 	# add some summary to the image
 	fingerprint_image "${destination}/etc/armbian.txt"

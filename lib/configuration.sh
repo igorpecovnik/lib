@@ -124,6 +124,19 @@ fi
 # load architecture defaults
 source "${SRC}/config/sources/${ARCH}.conf"
 
+## Fragments: at this point we've sourced all the config files that will be used,
+##            and (hopefully) not yet invoked any hook points. So this is the perfect
+##            place to initialize the fragment manager. It will create functions
+##            like the 'post_family_config' that is invoked below.
+initialize_fragment_manager
+
+call_hook_point "post_family_config" "config_tweaks_post_family_config" << 'POST_FAMILY_CONFIG'
+*give the config a chance to override the family/arch defaults*
+This hook is called after the family configuration (`sources/families/xxx.conf`) is sourced.
+Since the family can override values from the user configuration and the board configuration,
+it is often used to in turn override those.
+POST_FAMILY_CONFIG
+
 # Myy : Menu configuration for choosing desktop configurations
 
 show_menu() {
@@ -534,16 +547,20 @@ if [[ -z ${ARMBIAN_MIRROR} ]]; then
 	done
 fi
 
-# For user override
+# For (late) user override.
+# Notice: it is too late to define hook functions or add fragments in lib.config, since the fragment initialization already ran by now.
+#         in case the user tries to use them in lib.config, hopefully they'll be detected as "wishful hooking" and the user will be wrn'ed.
 if [[ -f $USERPATCHES_PATH/lib.config ]]; then
 	display_alert "Using user configuration override" "$USERPATCHES_PATH/lib.config" "info"
 	source "$USERPATCHES_PATH"/lib.config
 fi
 
-if [[ "$(type -t user_config)" == "function" ]]; then
-	display_alert "Invoke function with user override" "user_config" "info"
-	user_config
-fi
+call_hook_point "user_config" << 'USER_CONFIG'
+*Invoke function with user override*
+Allows for overriding configuration values set anywhere else.
+It is called after sourcing the `lib.config` file if it exists,
+but before assembling any package lists.
+USER_CONFIG
 
 # apt-cacher-ng mirror configurarion
 if [[ $DISTRIBUTION == Ubuntu ]]; then
@@ -608,6 +625,13 @@ display_alert "PACKAGE_LIST : \"${PACKAGE_LIST}\"" >> "${DEST}"/debug/output.log
 
 # Give the option to configure DNS server used in the chroot during the build process
 [[ -z $NAMESERVER ]] && NAMESERVER="1.0.0.1" # default is cloudflare alternate
+
+call_hook_point "post_aggregate_packages" "user_config_post_aggregate_packages" << 'POST_AGGREGATE_PACKAGES'
+*For final user override, using a function, after all aggregations are done*
+Called after aggregating all package lists, before the end of `compilation.sh`.
+Packages will still be installed after this is called, so it is the last chance
+to confirm or change any packages.
+POST_AGGREGATE_PACKAGES
 
 # debug
 cat <<-EOF >> "${DEST}"/debug/output.log

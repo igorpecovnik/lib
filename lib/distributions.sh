@@ -290,6 +290,11 @@ install_common()
 		[[ $INSTALL_HEADERS == yes ]] && install_deb_chroot "linux-headers-${BRANCH}-${LINUXFAMILY}" "remote"
 	fi
 
+	call_hook_point "post_install_kernel_debs" "config_post_install_kernel_debs" << 'MARKDOWN_DOCS_FOR_HOOK'
+*allow config to do more with the installed kernel/headers*
+Called after packages, u-boot, kernel and headers installed in the chroot, but before the BSP is installed.
+MARKDOWN_DOCS_FOR_HOOK
+
 	# install board support packages
 	if [[ "${REPOSITORY_INSTALL}" != *bsp* ]]; then
 		install_deb_chroot "${DEB_STORAGE}/$RELEASE/${BSP_CLI_PACKAGE_FULLNAME}.deb" | tee "${DEST}"/debug/install.log 2>&1
@@ -368,6 +373,12 @@ install_common()
 
 	# execute $LINUXFAMILY-specific tweaks
 	[[ $(type -t family_tweaks) == function ]] && family_tweaks
+
+	call_hook_point "post_family_tweaks" << 'FAMILY_TWEAKS'
+*customize the tweaks made by $LINUXFAMILY-specific family_tweaks*
+It is run after packages are installed in the rootfs, but before enabling additional services.
+It allows implementors access to the rootfs (`${SDCARD}`) in its pristine state after packages are installed.
+FAMILY_TWEAKS
 
 	# enable additional services
 	chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload enable armbian-firstrun.service >/dev/null 2>&1"
@@ -667,5 +678,11 @@ post_debootstrap_tweaks()
 	chroot "${SDCARD}" /bin/bash -c "dpkg-divert --quiet --local --rename --remove /sbin/initctl"
 	chroot "${SDCARD}" /bin/bash -c "dpkg-divert --quiet --local --rename --remove /sbin/start-stop-daemon"
 	rm -f "${SDCARD}"/usr/sbin/policy-rc.d "${SDCARD}/usr/bin/${QEMU_BINARY}"
+
+	call_hook_point "post_post_debootstrap_tweaks" "config_post_debootstrap_tweaks" << 'POST_POST_DEBOOTSTRAP_TWEAKS'
+*run after removing diversions and qemu with chroot unmounted*
+Last chance to touch the `${SDCARD}` filesystem before it is copied to the final media.
+It is too late to run any chrooted commands, since the supporting filesystems are already unmounted.
+POST_POST_DEBOOTSTRAP_TWEAKS
 
 }
