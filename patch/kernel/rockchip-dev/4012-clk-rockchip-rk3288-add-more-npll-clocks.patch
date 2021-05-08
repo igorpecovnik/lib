@@ -1,0 +1,54 @@
+From 8a24dd1ffe1bfd3186ef3fbda721d29e318a1ce2 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sun, 28 Oct 2018 21:43:01 +0100
+Subject: [PATCH 14/14] clk: rockchip: rk3288: add more npll clocks
+
+Fixes 2560x1440@60Hz, 1600x1200@60Hz, 1920x1200@60Hz, 1680x1050@60Hz and 1440x900@60Hz modes on my monitor
+
+Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
+---
+ drivers/clk/rockchip/clk-rk3288.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/clk/rockchip/clk-rk3288.c b/drivers/clk/rockchip/clk-rk3288.c
+index 6fa79d1db..98dcbf2e0 100644
+--- a/drivers/clk/rockchip/clk-rk3288.c
++++ b/drivers/clk/rockchip/clk-rk3288.c
+@@ -122,18 +122,34 @@ static struct rockchip_pll_rate_table rk3288_npll_rates[] = {
+ 	RK3066_PLL_RATE_NB(432000000, 3, 216, 4, 32),
+ 	RK3066_PLL_RATE_NB(426000000, 3, 213, 4, 32),
+ 	RK3066_PLL_RATE_NB(400000000, 1, 100, 6, 32),
++	RK3066_PLL_RATE(348500000, 8, 697, 6),
+ 	RK3066_PLL_RATE_NB(342000000, 3, 171, 4, 32),
+ 	RK3066_PLL_RATE_NB(297000000, 2, 198, 8, 16),
+ 	RK3066_PLL_RATE_NB(270000000, 1, 135, 12, 32),
+ 	RK3066_PLL_RATE_NB(260000000, 1, 130, 12, 32),
++	RK3066_PLL_RATE(241500000, 2, 161, 8),
++	RK3066_PLL_RATE(162000000, 1, 81, 12),
++	RK3066_PLL_RATE(154000000, 6, 539, 14),
+ 	RK3066_PLL_RATE_NB(148500000, 1, 99, 16, 32),
+ 	RK3066_PLL_RATE(148352000, 13, 1125, 14),
+ 	RK3066_PLL_RATE_NB(146250000, 6, 585, 16, 32),
++	RK3066_PLL_RATE(121750000, 6, 487, 16),
++	RK3066_PLL_RATE(119000000, 3, 238, 16),
+ 	RK3066_PLL_RATE_NB(108000000, 1, 54, 12, 32),
+ 	RK3066_PLL_RATE_NB(106500000, 4, 213, 12, 32),
++	RK3066_PLL_RATE(101000000, 3, 202, 16),
++	RK3066_PLL_RATE(88750000, 6, 355, 16),
+ 	RK3066_PLL_RATE_NB(85500000, 4, 171, 12, 32),
++	RK3066_PLL_RATE(83500000, 3, 167, 16),
++	RK3066_PLL_RATE(79500000, 1, 53, 16),
+ 	RK3066_PLL_RATE_NB(74250000, 4, 198, 16, 32),
+ 	RK3066_PLL_RATE(74176000, 26, 1125, 14),
++	RK3066_PLL_RATE(72000000, 1, 48, 16),
++	RK3066_PLL_RATE(71000000, 3, 142, 16),
++	RK3066_PLL_RATE(68250000, 2, 91, 16),
++	RK3066_PLL_RATE(65000000, 3, 130, 16),
++	RK3066_PLL_RATE(40000000, 3, 80, 16),
++	RK3066_PLL_RATE(33750000, 2, 45, 16),
+ 	{ /* sentinel */ },
+ };
+ 
+-- 
+2.26.2
+

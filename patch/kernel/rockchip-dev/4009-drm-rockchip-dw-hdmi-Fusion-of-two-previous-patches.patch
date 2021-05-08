@@ -1,0 +1,64 @@
+From 0a7decf0d82f07751f6cf399628df83ee461256e Mon Sep 17 00:00:00 2001
+From: "Miouyouyou (Myy)" <myy@miouyouyou.fr>
+Date: Sun, 17 May 2020 21:35:35 +0200
+Subject: [PATCH] drm: rockchip: dw: hdmi: Fusion of two previous patches
+
+Here follows their respective commit messages :
+
+Jonas Karlman :
+	drm/rockchip: dw-hdmi: limit tmds to 340mhz
+
+lukasz :
+	Use 340000 as fallback max_tmds_clock
+
+	If connector->display_info->max_tmds_clock is 0, fall back to 340000.
+
+	If it is > 0 though, shouldn't it take priority, and instead of max be
+	`min(info->max_tmds_clock, 165000)`?
+
+Signed-off-by: Miouyouyou (Myy) <myy@miouyouyou.fr>
+---
+ drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c | 26 +++++++++++----------
+ 1 file changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
+index 7f56d8c34..1fd927345 100644
+--- a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
++++ b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
+@@ -222,19 +222,21 @@ static enum drm_mode_status
+ dw_hdmi_rockchip_mode_valid(struct drm_connector *connector,
+ 			    const struct drm_display_mode *mode)
+ {
+-	const struct dw_hdmi_mpll_config *mpll_cfg = rockchip_mpll_cfg;
+-	int pclk = mode->clock * 1000;
+-	bool valid = false;
+-	int i;
+-
+-	for (i = 0; mpll_cfg[i].mpixelclock != (~0UL); i++) {
+-		if (pclk == mpll_cfg[i].mpixelclock) {
+-			valid = true;
+-			break;
+-		}
+-	}
++	struct drm_display_info *info = &connector->display_info;
++	int max_tmds_clock = info->max_tmds_clock > 0 ?
++				     max(info->max_tmds_clock, 165000) :
++				     340000;
++
++	int clock = mode->clock;
++
++	if (connector->ycbcr_420_allowed && drm_mode_is_420(info, mode) &&
++	    (info->color_formats & DRM_COLOR_FORMAT_YCRCB420))
++		clock /= 2;
++
++	if (clock > max_tmds_clock)
++		return MODE_CLOCK_HIGH;
+ 
+-	return (valid) ? MODE_OK : MODE_BAD;
++	return MODE_OK;
+ }
+ 
+ static const struct drm_encoder_funcs dw_hdmi_rockchip_encoder_funcs = {
+-- 
+2.26.2
+
