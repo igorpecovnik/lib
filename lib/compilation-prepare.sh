@@ -167,7 +167,32 @@ compilation_prepare()
 	fi
 
 
+	# ZFS
+	if linux-version compare "${version}" ge 3.10; then
 
+		# attach to specifics tag or branch
+
+
+		# prepare kernel
+		cd "$kerneldir" || exit
+		local toolchain
+		toolchain=$(find_toolchain "$KERNEL_COMPILER" "$KERNEL_USE_GCC")
+		make ARCH=$ARCHITECTURE CROSS_COMPILE="$CCACHE $KERNEL_COMPILER" mrproper
+		cp "${DEST}/config/${LINUXCONFIG}.config" .config
+		yes "" | make ARCH=$ARCHITECTURE CROSS_COMPILE="$KERNEL_COMPILER" oldconfig
+		make ARCH=$ARCHITECTURE CROSS_COMPILE="$KERNEL_COMPILER" prepare
+		make ARCH=$ARCHITECTURE CROSS_COMPILE="$KERNEL_COMPILER" scripts
+		local zfsver="tag:zfs-0.8.5"
+		display_alert "Adding" "ZFS for Linux ${wirever} " "info"
+		fetch_from_repo "https://github.com/zfsonlinux/zfs.git" "zfs" "${zfsver}" "yes"
+		cd "${SRC}/cache/sources/zfs/${zfsver#*:}"
+		sh autogen.sh
+		./configure --prefix=/ --libdir=/lib --includedir=/usr/include --with-config=kernel --datarootdir=/usr/share --enable-linux-builtin=yes --with-linux="${kerneldir}" --with-linux-obj="${kerneldir}"
+		./copy-builtin "${kerneldir}"
+		sudo make "$CTHREADS"
+		sudo make install
+
+	fi
 
 	# WireGuard VPN for Linux 3.10 - 5.5
 	if linux-version compare "${version}" ge 3.10 && linux-version compare "${version}" le 5.5 && [ "${WIREGUARD}" == yes ]; then
