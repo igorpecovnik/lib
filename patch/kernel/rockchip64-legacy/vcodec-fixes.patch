@@ -1,0 +1,945 @@
+From e222e9913d3c70967bae92f1aed46de726974dc7 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Thu, 5 Jul 2018 00:14:14 +0200
+Subject: [PATCH] Revert "drm/drm-prime: cache dma_buf import context"
+
+This reverts commit 5a90381e5acc2cf32be03099a14d05d4362b3348.
+---
+ drivers/gpu/drm/drm_prime.c                 | 46 ++---------------------------
+ drivers/gpu/drm/rockchip/rockchip_drm_gem.c |  1 +
+ 2 files changed, 3 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 6f207d5946dc..6b7417a194a3 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -71,11 +71,6 @@ struct drm_prime_attachment {
+ 	enum dma_data_direction dir;
+ };
+ 
+-struct drm_prime_callback_data {
+-	struct drm_gem_object *obj;
+-	struct sg_table *sgt;
+-};
+-
+ static int drm_prime_add_buf_handle(struct drm_prime_file_private *prime_fpriv,
+ 				    struct dma_buf *dma_buf, uint32_t handle)
+ {
+@@ -524,23 +519,6 @@ out_unlock:
+ }
+ EXPORT_SYMBOL(drm_gem_prime_handle_to_fd);
+ 
+-static void drm_gem_prime_dmabuf_release_callback(void *data)
+-{
+-	struct drm_prime_callback_data *cb_data = data;
+-
+-	if (cb_data && cb_data->obj && cb_data->obj->import_attach) {
+-		struct dma_buf_attachment *attach = cb_data->obj->import_attach;
+-		struct sg_table *sgt = cb_data->sgt;
+-
+-		if (sgt)
+-			dma_buf_unmap_attachment(attach, sgt,
+-						 DMA_BIDIRECTIONAL);
+-		dma_buf_detach(attach->dmabuf, attach);
+-		drm_gem_object_unreference_unlocked(cb_data->obj);
+-		kfree(cb_data);
+-	}
+-}
+-
+ /**
+  * drm_gem_prime_import - helper library implementation of the import callback
+  * @dev: drm_device to import into
+@@ -555,7 +533,6 @@ struct drm_gem_object *drm_gem_prime_import(struct drm_device *dev,
+ 	struct dma_buf_attachment *attach;
+ 	struct sg_table *sgt;
+ 	struct drm_gem_object *obj;
+-	struct drm_prime_callback_data *cb_data;
+ 	int ret;
+ 
+ 	if (dma_buf->ops == &drm_gem_prime_dmabuf_ops) {
+@@ -570,13 +547,6 @@ struct drm_gem_object *drm_gem_prime_import(struct drm_device *dev,
+ 		}
+ 	}
+ 
+-	cb_data = dma_buf_get_release_callback_data(dma_buf,
+-					drm_gem_prime_dmabuf_release_callback);
+-	if (cb_data && cb_data->obj && cb_data->obj->dev == dev) {
+-		drm_gem_object_reference(cb_data->obj);
+-		return cb_data->obj;
+-	}
+-
+ 	if (!dev->driver->gem_prime_import_sg_table)
+ 		return ERR_PTR(-EINVAL);
+ 
+@@ -585,16 +555,11 @@ struct drm_gem_object *drm_gem_prime_import(struct drm_device *dev,
+ 		return ERR_CAST(attach);
+ 
+ 	get_dma_buf(dma_buf);
+-	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+-	if (!cb_data) {
+-		ret = -ENOMEM;
+-		goto fail_detach;
+-	}
+ 
+ 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+ 	if (IS_ERR(sgt)) {
+ 		ret = PTR_ERR(sgt);
+-		goto fail_free;
++		goto fail_detach;
+ 	}
+ 
+ 	obj = dev->driver->gem_prime_import_sg_table(dev, attach, sgt);
+@@ -602,20 +567,13 @@ struct drm_gem_object *drm_gem_prime_import(struct drm_device *dev,
+ 		ret = PTR_ERR(obj);
+ 		goto fail_unmap;
+ 	}
++
+ 	obj->import_attach = attach;
+-	cb_data->obj = obj;
+-	cb_data->sgt = sgt;
+-	dma_buf_set_release_callback(dma_buf,
+-			drm_gem_prime_dmabuf_release_callback, cb_data);
+-	dma_buf_put(dma_buf);
+-	drm_gem_object_reference(obj);
+ 
+ 	return obj;
+ 
+ fail_unmap:
+ 	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+-fail_free:
+-	kfree(cb_data);
+ fail_detach:
+ 	dma_buf_detach(dma_buf, attach);
+ 	dma_buf_put(dma_buf);
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_gem.c b/drivers/gpu/drm/rockchip/rockchip_drm_gem.c
+index 273a52b5eb66..85bbd19c87b0 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_gem.c
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_gem.c
+@@ -649,6 +649,7 @@ void rockchip_gem_free_object(struct drm_gem_object *obj)
+ 			dma_unmap_sg(drm->dev, rk_obj->sgt->sgl,
+ 				     rk_obj->sgt->nents, DMA_BIDIRECTIONAL);
+ 		}
++		drm_prime_gem_destroy(obj, rk_obj->sgt);
+ 	} else {
+ 		rockchip_gem_free_buf(rk_obj);
+ 	}
+
+From 0868438e92b0e9a44d6c6e711ef3be0a429ab4af Mon Sep 17 00:00:00 2001
+From: Rob Clark <robdclark@gmail.com>
+Date: Thu, 9 Jun 2016 15:29:19 -0400
+Subject: [PATCH] UPSTREAM: drm/prime: fix error path deadlock fail
+
+There were a couple messed up things about this fail path.
+(1) it would drop object_name_lock twice
+(2) drm_gem_handle_delete() (in drm_gem_remove_prime_handles())
+    needs to grab prime_lock
+
+Reported-by: Alex Deucher <alexdeucher@gmail.com>
+Signed-off-by: Rob Clark <robdclark@gmail.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Link: http://patchwork.freedesktop.org/patch/msgid/1465500559-17873-1-git-send-email-robdclark@gmail.com
+(cherry picked from commit bd6e2732f0e2894ce792f344c41fc32591436fe3)
+---
+ drivers/gpu/drm/drm_prime.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 6b7417a194a3..d8d85286764d 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -628,7 +628,7 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
+ 		get_dma_buf(dma_buf);
+ 	}
+ 
+-	/* drm_gem_handle_create_tail unlocks dev->object_name_lock. */
++	/* _handle_create_tail unconditionally unlocks dev->object_name_lock. */
+ 	ret = drm_gem_handle_create_tail(file_priv, obj, handle);
+ 	drm_gem_object_unreference_unlocked(obj);
+ 	if (ret)
+@@ -636,11 +636,10 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
+ 
+ 	ret = drm_prime_add_buf_handle(&file_priv->prime,
+ 			dma_buf, *handle);
++	mutex_unlock(&file_priv->prime.lock);
+ 	if (ret)
+ 		goto fail;
+ 
+-	mutex_unlock(&file_priv->prime.lock);
+-
+ 	dma_buf_put(dma_buf);
+ 
+ 	return 0;
+@@ -650,11 +649,14 @@ fail:
+ 	 * to detach.. which seems ok..
+ 	 */
+ 	drm_gem_handle_delete(file_priv, *handle);
++	dma_buf_put(dma_buf);
++	return ret;
++
+ out_unlock:
+ 	mutex_unlock(&dev->object_name_lock);
+ out_put:
+-	dma_buf_put(dma_buf);
+ 	mutex_unlock(&file_priv->prime.lock);
++	dma_buf_put(dma_buf);
+ 	return ret;
+ }
+ EXPORT_SYMBOL(drm_gem_prime_fd_to_handle);
+
+From 8e4ac090d0a814f73d719887f96f7dc44112e03e Mon Sep 17 00:00:00 2001
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Date: Mon, 26 Sep 2016 21:44:14 +0100
+Subject: [PATCH] UPSTREAM: drm: Convert prime dma-buf <-> handle to rbtree
+
+Currently we use a linear walk to lookup a handle and return a dma-buf,
+and vice versa. A long overdue TODO task is to convert that to a
+hashtable. Since the initial implementation of dma-buf/prime, we now
+have resizeable hashtables we can use (and now a future task is to RCU
+enable the lookup!). However, this patch opts to use an rbtree instead
+to provide O(lgN) lookups (and insertion, deletion). rbtrees were chosen
+over using the RCU backed resizable hashtable to firstly avoid the
+reallocations (rbtrees can be embedded entirely within the parent
+struct) and to favour simpler code with predictable worst case
+behaviour. In simple testing, the difference between using the constant
+lookup and insertion of the rhashtable and the rbtree was less than 10%
+of the wall time (igt/benchmarks/prime_lookup) - both are dramatic
+improvements over the existing linear lists.
+
+v2: Favour rbtree over rhashtable
+
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=94631
+Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+Cc: Sean Paul <seanpaul@chromium.org>
+Cc: David Herrmann <dh.herrmann@gmail.com>
+Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
+Reviewed-by: Sean Paul <seanpaul@chromium.org>
+Signed-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Link: http://patchwork.freedesktop.org/patch/msgid/20160926204414.23222-1-chris@chris-wilson.co.uk
+(cherry picked from commit 077675c1e8a193a6355d4a7c8c7bf63be310b472)
+---
+ drivers/gpu/drm/drm_prime.c | 85 +++++++++++++++++++++++++++++++++++++++------
+ include/drm/drmP.h          |  5 +--
+ 2 files changed, 77 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index d8d85286764d..4c49e736bc9c 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -28,6 +28,7 @@
+ 
+ #include <linux/export.h>
+ #include <linux/dma-buf.h>
++#include <linux/rbtree.h>
+ #include <drm/drmP.h>
+ #include <drm/drm_gem.h>
+ 
+@@ -61,9 +62,11 @@
+  */
+ 
+ struct drm_prime_member {
+-	struct list_head entry;
+ 	struct dma_buf *dma_buf;
+ 	uint32_t handle;
++
++	struct rb_node dmabuf_rb;
++	struct rb_node handle_rb;
+ };
+ 
+ struct drm_prime_attachment {
+@@ -75,6 +78,7 @@ static int drm_prime_add_buf_handle(struct drm_prime_file_private *prime_fpriv,
+ 				    struct dma_buf *dma_buf, uint32_t handle)
+ {
+ 	struct drm_prime_member *member;
++	struct rb_node **p, *rb;
+ 
+ 	member = kmalloc(sizeof(*member), GFP_KERNEL);
+ 	if (!member)
+@@ -83,18 +87,56 @@ static int drm_prime_add_buf_handle(struct drm_prime_file_private *prime_fpriv,
+ 	get_dma_buf(dma_buf);
+ 	member->dma_buf = dma_buf;
+ 	member->handle = handle;
+-	list_add(&member->entry, &prime_fpriv->head);
++
++	rb = NULL;
++	p = &prime_fpriv->dmabufs.rb_node;
++	while (*p) {
++		struct drm_prime_member *pos;
++
++		rb = *p;
++		pos = rb_entry(rb, struct drm_prime_member, dmabuf_rb);
++		if (dma_buf > pos->dma_buf)
++			p = &rb->rb_right;
++		else
++			p = &rb->rb_left;
++	}
++	rb_link_node(&member->dmabuf_rb, rb, p);
++	rb_insert_color(&member->dmabuf_rb, &prime_fpriv->dmabufs);
++
++	rb = NULL;
++	p = &prime_fpriv->handles.rb_node;
++	while (*p) {
++		struct drm_prime_member *pos;
++
++		rb = *p;
++		pos = rb_entry(rb, struct drm_prime_member, handle_rb);
++		if (handle > pos->handle)
++			p = &rb->rb_right;
++		else
++			p = &rb->rb_left;
++	}
++	rb_link_node(&member->handle_rb, rb, p);
++	rb_insert_color(&member->handle_rb, &prime_fpriv->handles);
++
+ 	return 0;
+ }
+ 
+ static struct dma_buf *drm_prime_lookup_buf_by_handle(struct drm_prime_file_private *prime_fpriv,
+ 						      uint32_t handle)
+ {
+-	struct drm_prime_member *member;
++	struct rb_node *rb;
++
++	rb = prime_fpriv->handles.rb_node;
++	while (rb) {
++		struct drm_prime_member *member;
+ 
+-	list_for_each_entry(member, &prime_fpriv->head, entry) {
++		member = rb_entry(rb, struct drm_prime_member, handle_rb);
+ 		if (member->handle == handle)
+ 			return member->dma_buf;
++		else if (member->handle < handle)
++			rb = rb->rb_right;
++		else
++			rb = rb->rb_left;
+ 	}
+ 
+ 	return NULL;
+@@ -104,14 +146,23 @@ static int drm_prime_lookup_buf_handle(struct drm_prime_file_private *prime_fpri
+ 				       struct dma_buf *dma_buf,
+ 				       uint32_t *handle)
+ {
+-	struct drm_prime_member *member;
++	struct rb_node *rb;
++
++	rb = prime_fpriv->dmabufs.rb_node;
++	while (rb) {
++		struct drm_prime_member *member;
+ 
+-	list_for_each_entry(member, &prime_fpriv->head, entry) {
++		member = rb_entry(rb, struct drm_prime_member, dmabuf_rb);
+ 		if (member->dma_buf == dma_buf) {
+ 			*handle = member->handle;
+ 			return 0;
++		} else if (member->dma_buf < dma_buf) {
++			rb = rb->rb_right;
++		} else {
++			rb = rb->rb_left;
+ 		}
+ 	}
++
+ 	return -ENOENT;
+ }
+ 
+@@ -166,13 +217,24 @@ static void drm_gem_map_detach(struct dma_buf *dma_buf,
+ void drm_prime_remove_buf_handle_locked(struct drm_prime_file_private *prime_fpriv,
+ 					struct dma_buf *dma_buf)
+ {
+-	struct drm_prime_member *member, *safe;
++	struct rb_node *rb;
+ 
+-	list_for_each_entry_safe(member, safe, &prime_fpriv->head, entry) {
++	rb = prime_fpriv->dmabufs.rb_node;
++	while (rb) {
++		struct drm_prime_member *member;
++
++		member = rb_entry(rb, struct drm_prime_member, dmabuf_rb);
+ 		if (member->dma_buf == dma_buf) {
++			rb_erase(&member->handle_rb, &prime_fpriv->handles);
++			rb_erase(&member->dmabuf_rb, &prime_fpriv->dmabufs);
++
+ 			dma_buf_put(dma_buf);
+-			list_del(&member->entry);
+ 			kfree(member);
++			return;
++		} else if (member->dma_buf < dma_buf) {
++			rb = rb->rb_right;
++		} else {
++			rb = rb->rb_left;
+ 		}
+ 	}
+ }
+@@ -794,12 +856,13 @@ EXPORT_SYMBOL(drm_prime_gem_destroy);
+ 
+ void drm_prime_init_file_private(struct drm_prime_file_private *prime_fpriv)
+ {
+-	INIT_LIST_HEAD(&prime_fpriv->head);
+ 	mutex_init(&prime_fpriv->lock);
++	prime_fpriv->dmabufs = RB_ROOT;
++	prime_fpriv->handles = RB_ROOT;
+ }
+ 
+ void drm_prime_destroy_file_private(struct drm_prime_file_private *prime_fpriv)
+ {
+ 	/* by now drm_gem_release should've made sure the list is empty */
+-	WARN_ON(!list_empty(&prime_fpriv->head));
++	WARN_ON(!RB_EMPTY_ROOT(&prime_fpriv->dmabufs));
+ }
+diff --git a/include/drm/drmP.h b/include/drm/drmP.h
+index 04edcd32b409..93da65df2e7e 100644
+--- a/include/drm/drmP.h
++++ b/include/drm/drmP.h
+@@ -51,6 +51,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/poll.h>
+ #include <linux/ratelimit.h>
++#include <linux/rbtree.h>
+ #include <linux/sched.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
+@@ -365,10 +366,10 @@ struct drm_pending_event {
+ 	void (*destroy)(struct drm_pending_event *event);
+ };
+ 
+-/* initial implementaton using a linked list - todo hashtab */
+ struct drm_prime_file_private {
+-	struct list_head head;
+ 	struct mutex lock;
++	struct rb_root dmabufs;
++	struct rb_root handles;
+ };
+ 
+ /** File private data */
+
+From fcb8af30f524cd437434ec6ddea0231cc37529bc Mon Sep 17 00:00:00 2001
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Date: Wed, 5 Oct 2016 13:21:44 +0100
+Subject: [PATCH] UPSTREAM: drm/prime: Take a ref on the drm_dev when exporting
+ a dma_buf
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+dma_buf may live a long time, longer than the last direct user of the
+driver. We already hold a reference to the owner module (that prevents
+the object code from disappearing), but there is no reference to the
+drm_dev - so the pointers to the driver backend themselves may vanish.
+
+v2: Resist temptation to fix the bug in armada_gem.c not setting the
+correct flags on the exported dma-buf (it should pass the flags through
+and not be arbitrarily setting O_RDWR).
+
+Use a common wrapper for exporting the dmabuf and acquiring the
+reference to the drm_device.
+
+Testcase: igt/vgem_basic/unload
+Suggested-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+Cc: Petri Latvala <petri.latvala@intel.com>
+Cc: Daniel Vetter <daniel.vetter@ffwll.ch>
+Cc: stable@vger.kernel.org
+Tested-by: Petri Latvala <petri.latvala@intel.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Link: http://patchwork.freedesktop.org/patch/msgid/20161005122145.1507-2-chris@chris-wilson.co.uk
+(cherry picked from commit a4fce9cb782ad340ee5576a38e934e5e75832dc6)
+---
+ drivers/gpu/drm/armada/armada_gem.c    |  2 +-
+ drivers/gpu/drm/drm_prime.c            | 30 +++++++++++++++++++++++++++++-
+ drivers/gpu/drm/i915/i915_gem_dmabuf.c |  2 +-
+ drivers/gpu/drm/tegra/gem.c            |  2 +-
+ drivers/gpu/drm/udl/udl_dmabuf.c       |  2 +-
+ include/drm/drmP.h                     |  4 ++++
+ 6 files changed, 37 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/armada/armada_gem.c b/drivers/gpu/drm/armada/armada_gem.c
+index 60a688ef81c7..cd5bb991f49a 100644
+--- a/drivers/gpu/drm/armada/armada_gem.c
++++ b/drivers/gpu/drm/armada/armada_gem.c
+@@ -546,7 +546,7 @@ armada_gem_prime_export(struct drm_device *dev, struct drm_gem_object *obj,
+ 	exp_info.flags = O_RDWR;
+ 	exp_info.priv = obj;
+ 
+-	return dma_buf_export(&exp_info);
++	return drm_gem_dmabuf_export(dev, &exp_info);
+ }
+ 
+ struct drm_gem_object *
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 4c49e736bc9c..94b4872255c8 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -283,19 +283,47 @@ static void drm_gem_unmap_dma_buf(struct dma_buf_attachment *attach,
+ 	/* nothing to be done here */
+ }
+ 
++/**
++ * drm_gem_dmabuf_export - dma_buf export implementation for GEM
++ * @dma_buf: buffer to be exported
++ *
++ * This wraps dma_buf_export() for use by generic GEM drivers that are using
++ * drm_gem_dmabuf_release(). In addition to calling dma_buf_export(), we take
++ * a reference to the drm_device which is released by drm_gem_dmabuf_release().
++ *
++ * Returns the new dmabuf.
++ */
++struct dma_buf *drm_gem_dmabuf_export(struct drm_device *dev,
++				      struct dma_buf_export_info *exp_info)
++{
++	struct dma_buf *dma_buf;
++
++	dma_buf = dma_buf_export(exp_info);
++	if (!IS_ERR(dma_buf))
++		drm_dev_ref(dev);
++
++	return dma_buf;
++}
++EXPORT_SYMBOL(drm_gem_dmabuf_export);
++
+ /**
+  * drm_gem_dmabuf_release - dma_buf release implementation for GEM
+  * @dma_buf: buffer to be released
+  *
+  * Generic release function for dma_bufs exported as PRIME buffers. GEM drivers
+  * must use this in their dma_buf ops structure as the release callback.
++ * drm_gem_dmabuf_release() should be used in conjunction with
++ * drm_gem_dmabuf_export().
+  */
+ void drm_gem_dmabuf_release(struct dma_buf *dma_buf)
+ {
+ 	struct drm_gem_object *obj = dma_buf->priv;
++	struct drm_device *dev = obj->dev;
+ 
+ 	/* drop the reference on the export fd holds */
+ 	drm_gem_object_unreference_unlocked(obj);
++
++	drm_dev_unref(dev);
+ }
+ EXPORT_SYMBOL(drm_gem_dmabuf_release);
+ 
+@@ -444,7 +472,7 @@ struct dma_buf *drm_gem_prime_export(struct drm_device *dev,
+ 	if (dev->driver->gem_prime_res_obj)
+ 		exp_info.resv = dev->driver->gem_prime_res_obj(obj);
+ 
+-	return dma_buf_export(&exp_info);
++	return drm_gem_dmabuf_export(dev, &exp_info);
+ }
+ EXPORT_SYMBOL(drm_gem_prime_export);
+ 
+diff --git a/drivers/gpu/drm/i915/i915_gem_dmabuf.c b/drivers/gpu/drm/i915/i915_gem_dmabuf.c
+index e9c2bfd85b52..d4a021629bd6 100644
+--- a/drivers/gpu/drm/i915/i915_gem_dmabuf.c
++++ b/drivers/gpu/drm/i915/i915_gem_dmabuf.c
+@@ -244,7 +244,7 @@ struct dma_buf *i915_gem_prime_export(struct drm_device *dev,
+ 			return ERR_PTR(ret);
+ 	}
+ 
+-	return dma_buf_export(&exp_info);
++	return drm_gem_dmabuf_export(dev, &exp_info);
+ }
+ 
+ static int i915_gem_object_get_pages_dmabuf(struct drm_i915_gem_object *obj)
+diff --git a/drivers/gpu/drm/tegra/gem.c b/drivers/gpu/drm/tegra/gem.c
+index 01e16e146bfe..da06f1c1ee0f 100644
+--- a/drivers/gpu/drm/tegra/gem.c
++++ b/drivers/gpu/drm/tegra/gem.c
+@@ -625,7 +625,7 @@ struct dma_buf *tegra_gem_prime_export(struct drm_device *drm,
+ 	exp_info.flags = flags;
+ 	exp_info.priv = gem;
+ 
+-	return dma_buf_export(&exp_info);
++	return drm_gem_dmabuf_export(drm, &exp_info);
+ }
+ 
+ struct drm_gem_object *tegra_gem_prime_import(struct drm_device *drm,
+diff --git a/drivers/gpu/drm/udl/udl_dmabuf.c b/drivers/gpu/drm/udl/udl_dmabuf.c
+index e2243edd1ce3..ac90ffdb5912 100644
+--- a/drivers/gpu/drm/udl/udl_dmabuf.c
++++ b/drivers/gpu/drm/udl/udl_dmabuf.c
+@@ -209,7 +209,7 @@ struct dma_buf *udl_gem_prime_export(struct drm_device *dev,
+ 	exp_info.flags = flags;
+ 	exp_info.priv = obj;
+ 
+-	return dma_buf_export(&exp_info);
++	return drm_gem_dmabuf_export(dev, &exp_info);
+ }
+ 
+ static int udl_prime_create(struct drm_device *dev,
+diff --git a/include/drm/drmP.h b/include/drm/drmP.h
+index 93da65df2e7e..4aba6478d718 100644
+--- a/include/drm/drmP.h
++++ b/include/drm/drmP.h
+@@ -1124,6 +1124,8 @@ static inline int drm_debugfs_remove_files(const struct drm_info_list *files,
+ }
+ #endif
+ 
++struct dma_buf_export_info;
++
+ extern struct dma_buf *drm_gem_prime_export(struct drm_device *dev,
+ 					    struct drm_gem_object *obj,
+ 					    int flags);
+@@ -1134,6 +1136,8 @@ extern struct drm_gem_object *drm_gem_prime_import(struct drm_device *dev,
+ 		struct dma_buf *dma_buf);
+ extern int drm_gem_prime_fd_to_handle(struct drm_device *dev,
+ 		struct drm_file *file_priv, int prime_fd, uint32_t *handle);
++struct dma_buf *drm_gem_dmabuf_export(struct drm_device *dev,
++				      struct dma_buf_export_info *exp_info);
+ extern void drm_gem_dmabuf_release(struct dma_buf *dma_buf);
+ 
+ extern int drm_prime_sg_to_page_addr_arrays(struct sg_table *sgt, struct page **pages,
+
+From 2c0a8737dd35ba259d3bbbf1b956fb43da32f117 Mon Sep 17 00:00:00 2001
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Date: Wed, 7 Dec 2016 21:45:27 +0000
+Subject: [PATCH] UPSTREAM: drm: Take ownership of the dmabuf->obj when
+ exporting
+
+Currently the reference for the dmabuf->obj is incremented for the
+dmabuf in drm_gem_prime_handle_to_fd() (at the high level userspace
+interface), but is released in drm_gem_dmabuf_release() (the lowlevel
+handler). Improve the symmetry of the dmabuf->obj ownership by acquiring
+the reference in drm_gem_dmabuf_export(). This makes it easier to use
+the prime functions directly.
+
+Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+[danvet: Update kerneldoc.]
+Signed-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Link: http://patchwork.freedesktop.org/patch/msgid/20161207214527.22533-1-chris@chris-wilson.co.uk
+(cherry picked from commit 72a93e8dd52c9feea42f1258d555e6070680a347)
+---
+ drivers/gpu/drm/drm_prime.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 94b4872255c8..dbd34fa7f71c 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -289,7 +289,8 @@ static void drm_gem_unmap_dma_buf(struct dma_buf_attachment *attach,
+  *
+  * This wraps dma_buf_export() for use by generic GEM drivers that are using
+  * drm_gem_dmabuf_release(). In addition to calling dma_buf_export(), we take
+- * a reference to the drm_device which is released by drm_gem_dmabuf_release().
++ * a reference to the &drm_device and the exported &drm_gem_object (stored in
++ * exp_info->priv) which is released by drm_gem_dmabuf_release().
+  *
+  * Returns the new dmabuf.
+  */
+@@ -299,8 +300,11 @@ struct dma_buf *drm_gem_dmabuf_export(struct drm_device *dev,
+ 	struct dma_buf *dma_buf;
+ 
+ 	dma_buf = dma_buf_export(exp_info);
+-	if (!IS_ERR(dma_buf))
+-		drm_dev_ref(dev);
++	if (IS_ERR(dma_buf))
++		return dma_buf;
++
++	drm_dev_ref(dev);
++	drm_gem_object_reference(exp_info->priv);
+ 
+ 	return dma_buf;
+ }
+@@ -503,8 +507,6 @@ static struct dma_buf *export_and_register_object(struct drm_device *dev,
+ 	 */
+ 	obj->dma_buf = dmabuf;
+ 	get_dma_buf(obj->dma_buf);
+-	/* Grab a new ref since the callers is now used by the dma-buf */
+-	drm_gem_object_reference(obj);
+ 
+ 	return dmabuf;
+ }
+
+From 595e921b1e908458bd1ee022c9a7ee08cf203ad9 Mon Sep 17 00:00:00 2001
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Thu, 30 Nov 2017 18:34:28 +0100
+Subject: [PATCH] UPSTREAM: drm/prime: skip CPU sync in map/unmap dma_buf
+
+Dma-bufs should already be device coherent, as they are only pulled in the
+CPU domain via the begin/end cpu_access calls. As we cache the mapping set
+up by dma_map_sg a CPU sync at this point will not actually guarantee proper
+coherency on non-coherent architectures, so we can as well stop pretending.
+
+This is an important performance fix for architectures which need explicit
+cache synchronization and userspace doing lots of dma-buf imports.
+Improves Weston on Etnaviv performance 5x, where before this patch > 90%
+of Weston CPU time was spent synchronizing caches for buffers which are
+already device coherent.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+Reviewed-by: Chris Wilson <chris@chris-wilson.co.uk>
+Signed-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Link: https://patchwork.freedesktop.org/patch/msgid/20171130173428.8666-1-l.stach@pengutronix.de
+(cherry picked from commit ca0e68e21aae10220eff71a297e7d794425add77)
+---
+ drivers/gpu/drm/drm_prime.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index dbd34fa7f71c..133362279591 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -203,9 +203,12 @@ static void drm_gem_map_detach(struct dma_buf *dma_buf,
+ 
+ 	sgt = prime_attach->sgt;
+ 	if (sgt) {
++		DEFINE_DMA_ATTRS(attrs);
++		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+ 		if (prime_attach->dir != DMA_NONE)
+-			dma_unmap_sg(attach->dev, sgt->sgl, sgt->nents,
+-					prime_attach->dir);
++			dma_unmap_sg_attrs(attach->dev, sgt->sgl, sgt->nents,
++					   prime_attach->dir,
++					   &attrs);
+ 		sg_free_table(sgt);
+ 	}
+ 
+@@ -263,7 +266,9 @@ static struct sg_table *drm_gem_map_dma_buf(struct dma_buf_attachment *attach,
+ 	sgt = obj->dev->driver->gem_prime_get_sg_table(obj);
+ 
+ 	if (!IS_ERR(sgt)) {
+-		if (!dma_map_sg(attach->dev, sgt->sgl, sgt->nents, dir)) {
++		DEFINE_DMA_ATTRS(attrs);
++		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
++		if (!dma_map_sg_attrs(attach->dev, sgt->sgl, sgt->nents, dir, &attrs)) {
+ 			sg_free_table(sgt);
+ 			kfree(sgt);
+ 			sgt = ERR_PTR(-ENOMEM);
+
+From d314fd1a48e930d034eccd49342a23340c3f1c27 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <ckoenig.leichtzumerken@gmail.com>
+Date: Tue, 27 Feb 2018 12:49:56 +0100
+Subject: [PATCH] UPSTREAM: drm/prime: fix potential race in drm_gem_map_detach
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unpin the GEM object only after freeing the sg table.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Acked-by: Roger He <Hongbo.He@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20180227115000.4105-1-christian.koenig@amd.com
+(cherry picked from commit 681066ec1d41e4b299146bada52cef846b323c04)
+---
+ drivers/gpu/drm/drm_prime.c | 36 ++++++++++++++++++------------------
+ 1 file changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 133362279591..95ecc69d03a0 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -193,28 +193,28 @@ static void drm_gem_map_detach(struct dma_buf *dma_buf,
+ 	struct drm_prime_attachment *prime_attach = attach->priv;
+ 	struct drm_gem_object *obj = dma_buf->priv;
+ 	struct drm_device *dev = obj->dev;
+-	struct sg_table *sgt;
+-
+-	if (dev->driver->gem_prime_unpin)
+-		dev->driver->gem_prime_unpin(obj);
+ 
+-	if (!prime_attach)
+-		return;
++	if (prime_attach) {
++		struct sg_table *sgt = prime_attach->sgt;
++
++		if (sgt) {
++			DEFINE_DMA_ATTRS(attrs);
++			dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
++			if (prime_attach->dir != DMA_NONE)
++				dma_unmap_sg_attrs(attach->dev, sgt->sgl,
++						   sgt->nents,
++						   prime_attach->dir,
++						   &attrs);
++			sg_free_table(sgt);
++		}
+ 
+-	sgt = prime_attach->sgt;
+-	if (sgt) {
+-		DEFINE_DMA_ATTRS(attrs);
+-		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+-		if (prime_attach->dir != DMA_NONE)
+-			dma_unmap_sg_attrs(attach->dev, sgt->sgl, sgt->nents,
+-					   prime_attach->dir,
+-					   &attrs);
+-		sg_free_table(sgt);
++		kfree(sgt);
++		kfree(prime_attach);
++		attach->priv = NULL;
+ 	}
+ 
+-	kfree(sgt);
+-	kfree(prime_attach);
+-	attach->priv = NULL;
++	if (dev->driver->gem_prime_unpin)
++		dev->driver->gem_prime_unpin(obj);
+ }
+ 
+ void drm_prime_remove_buf_handle_locked(struct drm_prime_file_private *prime_fpriv,
+
+From c74449bbd7e3ee3f3195ac9da48271c83c56f101 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <ckoenig.leichtzumerken@gmail.com>
+Date: Tue, 27 Feb 2018 12:49:57 +0100
+Subject: [PATCH] UPSTREAM: drm/prime: make the pages array optional for
+ drm_prime_sg_to_page_addr_arrays
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Most of the time we only need the dma addresses.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Roger He <Hongbo.He@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20180227115000.4105-2-christian.koenig@amd.com
+Link: https://patchwork.freedesktop.org/patch/msgid/20180227115000.4105-3-christian.koenig@amd.com
+Link: https://patchwork.freedesktop.org/patch/msgid/20180227115000.4105-4-christian.koenig@amd.com
+Link: https://patchwork.freedesktop.org/patch/msgid/20180227115000.4105-5-christian.koenig@amd.com
+Link: https://patchwork.freedesktop.org/patch/msgid/BN6PR12MB18262C0DE9B5F07B9A42EAE7F2C60@BN6PR12MB1826.namprd12.prod.outlook.com
+(cherry picked from commit 186ca446aea19e49d2e1433dd170c6e1c211a52a)
+---
+ drivers/gpu/drm/drm_prime.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 95ecc69d03a0..7ea65c4105c1 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -827,40 +827,40 @@ EXPORT_SYMBOL(drm_prime_pages_to_sg);
+ /**
+  * drm_prime_sg_to_page_addr_arrays - convert an sg table into a page array
+  * @sgt: scatter-gather table to convert
+- * @pages: array of page pointers to store the page array in
++ * @pages: optional array of page pointers to store the page array in
+  * @addrs: optional array to store the dma bus address of each page
+- * @max_pages: size of both the passed-in arrays
++ * @max_entries: size of both the passed-in arrays
+  *
+  * Exports an sg table into an array of pages and addresses. This is currently
+  * required by the TTM driver in order to do correct fault handling.
+  */
+ int drm_prime_sg_to_page_addr_arrays(struct sg_table *sgt, struct page **pages,
+-				     dma_addr_t *addrs, int max_pages)
++				     dma_addr_t *addrs, int max_entries)
+ {
+ 	unsigned count;
+ 	struct scatterlist *sg;
+ 	struct page *page;
+-	u32 len;
+-	int pg_index;
++	u32 len, index;
+ 	dma_addr_t addr;
+ 
+-	pg_index = 0;
++	index = 0;
+ 	for_each_sg(sgt->sgl, sg, sgt->nents, count) {
+ 		len = sg->length;
+ 		page = sg_page(sg);
+ 		addr = sg_dma_address(sg);
+ 
+ 		while (len > 0) {
+-			if (WARN_ON(pg_index >= max_pages))
++			if (WARN_ON(index >= max_entries))
+ 				return -1;
+-			pages[pg_index] = page;
++			if (pages)
++				pages[index] = page;
+ 			if (addrs)
+-				addrs[pg_index] = addr;
++				addrs[index] = addr;
+ 
+ 			page++;
+ 			addr += PAGE_SIZE;
+ 			len -= PAGE_SIZE;
+-			pg_index++;
++			index++;
+ 		}
+ 	}
+ 	return 0;
+
+From 2fc969d64eb928db78c9fd99fb68d9d2442a8919 Mon Sep 17 00:00:00 2001
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Date: Sat, 19 Aug 2017 13:05:58 +0100
+Subject: [PATCH] UPSTREAM: drm: Release driver tracking before making the
+ object available again
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This is the same bug as we fixed in commit f6cd7daecff5 ("drm: Release
+driver references to handle before making it available again"), but now
+the exposure is via the PRIME lookup tables. If we remove the
+object/handle from the PRIME lut, then a new request for the same
+object/fd will generate a new handle, thus for a short window that
+object is known to userspace by two different handles. Fix this by
+releasing the driver tracking before PRIME.
+
+Fixes: 0ff926c7d4f0 ("drm/prime: add exported buffers to current fprivs
+imported buffer list (v2)")
+Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+Cc: David Airlie <airlied@linux.ie>
+Cc: Daniel Vetter <daniel.vetter@intel.com>
+Cc: Rob Clark <robdclark@gmail.com>
+Cc: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Cc: Thierry Reding <treding@nvidia.com>
+Cc: stable@vger.kernel.org
+Reviewed-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Signed-off-by: Joonas Lahtinen <joonas.lahtinen@linux.intel.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20170819120558.6465-1-chris@chris-wilson.co.uk
+(cherry picked from commit d0a133f7f5bc3583e460ba6bb54474a50ada5201)
+---
+ drivers/gpu/drm/drm_gem.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_gem.c b/drivers/gpu/drm/drm_gem.c
+index d7f39a03c2c9..966ea63581b1 100644
+--- a/drivers/gpu/drm/drm_gem.c
++++ b/drivers/gpu/drm/drm_gem.c
+@@ -255,13 +255,13 @@ drm_gem_object_release_handle(int id, void *ptr, void *data)
+ 	struct drm_gem_object *obj = ptr;
+ 	struct drm_device *dev = obj->dev;
+ 
++	if (dev->driver->gem_close_object)
++		dev->driver->gem_close_object(obj, file_priv);
++
+ 	if (drm_core_check_feature(dev, DRIVER_PRIME))
+ 		drm_gem_remove_prime_handles(obj, file_priv);
+ 	drm_vma_node_revoke(&obj->vma_node, file_priv->filp);
+ 
+-	if (dev->driver->gem_close_object)
+-		dev->driver->gem_close_object(obj, file_priv);
+-
+ 	drm_gem_object_handle_unreference_unlocked(obj);
+ 
+ 	return 0;
+
+From 1d9b65acb4e776f43408afed2b0fd7b86fdb95ce Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sat, 17 Feb 2018 05:30:36 +0100
+Subject: [PATCH] vcodec: skip reduce freq
+
+---
+ drivers/video/rockchip/vcodec/vcodec_service.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/video/rockchip/vcodec/vcodec_service.c b/drivers/video/rockchip/vcodec/vcodec_service.c
+index c4ee73be92d3..9d5ee5c8b1f9 100644
+--- a/drivers/video/rockchip/vcodec/vcodec_service.c
++++ b/drivers/video/rockchip/vcodec/vcodec_service.c
+@@ -1630,9 +1630,6 @@ static void try_set_reg(struct vpu_subdev_data *data)
+ 			reg_from_wait_to_run(pservice, reg);
+ 			reg_copy_to_hw(reg->data, reg);
+ 		}
+-	} else {
+-		if (pservice->hw_ops->reduce_freq)
+-			pservice->hw_ops->reduce_freq(pservice);
+ 	}
+ 
+ 	mutex_unlock(&pservice->shutdown_lock);
+@@ -2385,6 +2382,7 @@ static void vcodec_set_freq_rk3328(struct vpu_service_info *pservice,
+ 	if (curr == reg->freq)
+ 		return;
+ 
++	atomic_set(&pservice->freq_status, reg->freq);
+ 	if (pservice->dev_id == VCODEC_DEVICE_ID_RKVDEC) {
+ 		if (reg->reg[1] & 0x00800000) {
+ 			if (rkv_dec_get_fmt(reg->reg) == FMT_H264D)
