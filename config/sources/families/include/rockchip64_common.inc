@@ -66,6 +66,15 @@ elif [[ $BOARD == station-p1 ]]; then
 	MINILOADER_BLOB='rk33/rk3399_miniloader_v1.19.bin'
 	BL31_BLOB='rk33/rk3399_bl31_v1.30.elf'
 
+elif [[ $BOARD == rockpi-n10* ]]; then
+
+	BOOT_USE_BLOBS=yes
+	BOOT_SUPPORT_SPI=yes
+	BOOT_SOC=rk3399pro
+	DDR_BLOB='rk33/rk3399pro_npu_ddr_933MHz_v1.02.bin'
+	MINILOADER_BLOB='rk33/rk3399pro_miniloader_v1.26.bin'
+	BL31_BLOB='rk33/rk3399pro_bl31_v1.35.elf'
+
 elif [[ $BOARD == rockpro64 ]]; then
 
 	BOOT_USE_TPL_SPL_BLOB=yes

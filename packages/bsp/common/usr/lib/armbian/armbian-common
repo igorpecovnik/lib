@@ -34,19 +34,27 @@ MACADDR=$(printf ${prefixes[$random]}':%02X:%02X:%02X:%02X:%02X\n' $[RANDOM%256]
 # set fixed IP address from first randomly assigned one. If nothing is deteceted, generate one.
 set_fixed_mac ()
 {
+	if [ -n "$(command -v nmcli)" ]; then
+		CONNECTION="$(nmcli -f UUID,ACTIVE,DEVICE,TYPE connection show --active | tail -n1)"
+		UUID=$(awk -F" " '/ethernet/ {print $1}' <<< "${CONNECTION}")
+		DEVNAME=$(awk -F" " '/ethernet/ {print $3}' <<< "${CONNECTION}")
+	else
+		DEVNAME=eth0
+	fi
 
-CONNECTION="$(nmcli -f UUID,ACTIVE,DEVICE,TYPE connection show --active | tail -n1)"
-UUID=$(awk -F" " '/ethernet/ {print $1}' <<< "${CONNECTION}")
-DEVNAME=$(awk -F" " '/ethernet/ {print $3}' <<< "${CONNECTION}")
-MACADDR=$(/sbin/ip link | grep -A1 ${DEVNAME} | awk -F" " '/ether / {print $2}')
+	MACADDR=$(/sbin/ip link | grep -A1 ${DEVNAME} | awk -F" " '/ether / {print $2}')
 
-[[ -z $MACADDR ]] && get_random_mac
+	[[ -z $MACADDR ]] && get_random_mac
 
-if [[ -n $UUID ]]; then
-	nmcli connection modify $UUID ethernet.cloned-mac-address $MACADDR
-	nmcli connection modify $UUID -ethernet.mac-address ""
-	nmcli connection down $UUID >/dev/null 2>&1
-	nmcli connection up $UUID >/dev/null 2>&1
+	if [[ -n "$(command -v nmcli)" && -n $UUID ]]; then
+		nmcli connection modify $UUID ethernet.cloned-mac-address $MACADDR
+		nmcli connection modify $UUID -ethernet.mac-address ""
+		nmcli connection down $UUID >/dev/null 2>&1
+		nmcli connection up $UUID >/dev/null 2>&1
+	elif [[ -f /etc/systemd/network/$DEVNAME.network ]]; then
+		if ! grep '^ *MACAddress=' /etc/systemd/network/$DEVNAME.network > /dev/null; then
+			sed -i "s/#MACAddress=/MACAddress=$MACADDR/g" /etc/systemd/network/$DEVNAME.network
+		fi
+	fi
 	return 0
-fi
 } # set fixed mac to the 1st active network adapter

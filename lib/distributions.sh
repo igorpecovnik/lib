@@ -58,7 +58,7 @@ install_common()
 			# /usr/share/initramfs-tools/hooks/dropbear will automatically add 'id_ecdsa.pub' to authorized_keys file
 			# during mkinitramfs of update-initramfs
 			#cat "${SDCARD}"/etc/dropbear-initramfs/id_ecdsa.pub > "${SDCARD}"/etc/dropbear-initramfs/authorized_keys
-			CRYPTROOT_SSH_UNLOCK_KEY_NAME="Armbian_${REVISION}_${BOARD^}_${RELEASE}_${BRANCH}_${VER/-$LINUXFAMILY/}_${DESKTOP_ENVIRONMENT}".key
+			CRYPTROOT_SSH_UNLOCK_KEY_NAME="${VENDOR}_${REVISION}_${BOARD^}_${RELEASE}_${BRANCH}_${VER/-$LINUXFAMILY/}_${DESKTOP_ENVIRONMENT}".key
 			# copy dropbear ssh key to image output dir for convenience
 			cp "${SDCARD}"/etc/dropbear-initramfs/id_ecdsa "${DEST}/images/${CRYPTROOT_SSH_UNLOCK_KEY_NAME}"
 			display_alert "SSH private key for dropbear (initramfs) has been copied to:" \
@@ -142,9 +142,9 @@ install_common()
 	#chroot "${SDCARD}" /bin/bash -c "chage -d 0 root"
 
 	# change console welcome text
-	echo -e "Armbian ${REVISION} ${RELEASE^} \\l \n" > "${SDCARD}"/etc/issue
-	echo "Armbian ${REVISION} ${RELEASE^}" > "${SDCARD}"/etc/issue.net
-	sed -i "s/^PRETTY_NAME=.*/PRETTY_NAME=\"Armbian $REVISION "${RELEASE^}"\"/" "${SDCARD}"/etc/os-release
+	echo -e "${VENDOR} ${REVISION} ${RELEASE^} \\l \n" > "${SDCARD}"/etc/issue
+	echo "${VENDOR} ${REVISION} ${RELEASE^}" > "${SDCARD}"/etc/issue.net
+	sed -i "s/^PRETTY_NAME=.*/PRETTY_NAME=\"${VENDOR} $REVISION "${RELEASE^}"\"/" "${SDCARD}"/etc/os-release
 
 	# enable few bash aliases enabled in Ubuntu by default to make it even
 	sed "s/#alias ll='ls -l'/alias ll='ls -l'/" -i "${SDCARD}"/etc/skel/.bashrc
@@ -170,7 +170,7 @@ install_common()
 
 		mkdir -p $SDCARD/boot/extlinux
 		cat <<-EOF > "$SDCARD/boot/extlinux/extlinux.conf"
-		LABEL Armbian
+		LABEL ${VENDOR}
 		  LINUX /boot/$NAME_KERNEL
 		  INITRD /boot/$NAME_INITRD
 	EOF
@@ -322,24 +322,28 @@ install_common()
 	fi
 
 	# install armbian-config
-	if [[ "${REPOSITORY_INSTALL}" != *armbian-config* ]]; then
-		if [[ $BUILD_MINIMAL != yes ]]; then
-			install_deb_chroot "${DEB_STORAGE}/armbian-config_${REVISION}_all.deb"
-		fi
-	else
-		if [[ $BUILD_MINIMAL != yes ]]; then
-			install_deb_chroot "armbian-config" "remote"
+	if [[ "${PACKAGE_LIST_RM}" != *armbian-config* ]]; then
+		if [[ "${REPOSITORY_INSTALL}" != *armbian-config* ]]; then
+			if [[ $BUILD_MINIMAL != yes ]]; then
+				install_deb_chroot "${DEB_STORAGE}/armbian-config_${REVISION}_all.deb"
+			fi
+		else
+			if [[ $BUILD_MINIMAL != yes ]]; then
+				install_deb_chroot "armbian-config" "remote"
+			fi
 		fi
 	fi
 
 	# install armbian-zsh
-	if [[ "${REPOSITORY_INSTALL}" != *armbian-zsh* ]]; then
-		if [[ $BUILD_MINIMAL != yes ]]; then
-			install_deb_chroot "${DEB_STORAGE}/armbian-zsh_${REVISION}_all.deb"
-		fi
-	else
-		if [[ $BUILD_MINIMAL != yes ]]; then
-			install_deb_chroot "armbian-zsh" "remote"
+	if [[ "${PACKAGE_LIST_RM}" != *armbian-zsh* ]]; then
+		if [[ "${REPOSITORY_INSTALL}" != *armbian-zsh* ]]; then
+			if [[ $BUILD_MINIMAL != yes ]]; then
+				install_deb_chroot "${DEB_STORAGE}/armbian-zsh_${REVISION}_all.deb"
+			fi
+		else
+			if [[ $BUILD_MINIMAL != yes ]]; then
+				install_deb_chroot "armbian-zsh" "remote"
+			fi
 		fi
 	fi
 
@@ -505,6 +509,7 @@ install_common()
 		Name=eth0
 
 		[Network]
+		#MACAddress=
 		DHCP=ipv4
 		LinkLocalAddressing=ipv4
 		#Address=192.168.1.100/24

@@ -31,7 +31,9 @@
 #
 # target: what to clean
 # "make" - "make clean" for selected kernel and u-boot
-# "debs" - delete output/debs
+# "debs" - delete output/debs for board&branch
+# "ubootdebs" - delete output/debs for uboot&board&branch
+# "alldebs" - delete output/debs
 # "cache" - delete output/cache
 # "oldcache" - remove old output/cache
 # "images" - delete output/images
@@ -53,6 +55,14 @@ cleaning()
 				-name "${CHOSEN_KERNEL/image/firmware-image}_*.deb" \) -delete
 			[[ -n $RELEASE ]] && rm -f "${DEB_STORAGE}/${RELEASE}/${CHOSEN_ROOTFS}"_*.deb
 			[[ -n $RELEASE ]] && rm -f "${DEB_STORAGE}/${RELEASE}/armbian-desktop-${RELEASE}"_*.deb
+		fi
+		;;
+
+		ubootdebs) # delete ${DEB_STORAGE} for uboot, current branch and family
+		if [[ -d "${DEB_STORAGE}" ]]; then
+			display_alert "Cleaning ${DEB_STORAGE} for u-boot" "$BOARD $BRANCH" "info"
+			# easier than dealing with variable expansion and escaping dashes in file names
+			find "${DEB_STORAGE}" -name "${CHOSEN_UBOOT}_*.deb" -delete
 		fi
 		;;
 
@@ -123,7 +133,12 @@ exit_with_error()
 
 get_package_list_hash()
 {
-	( printf '%s\n' "${PACKAGE_LIST}" | sort -u; printf '%s\n' "${PACKAGE_LIST_EXCLUDE}" | sort -u; echo "${1}" ) \
+	local package_arr exclude_arr
+	local list_content
+	read -ra package_arr <<< "${DEBOOTSTRAP_LIST} ${PACKAGE_LIST}"
+	read -ra exclude_arr <<< "${PACKAGE_LIST_EXCLUDE}"
+	( ( printf "%s\n" "${package_arr[@]}"; printf "-%s\n" "${exclude_arr[@]}" ) | sort -u; echo "${1}" ) > /root/debug.txt
+	( ( printf "%s\n" "${package_arr[@]}"; printf "-%s\n" "${exclude_arr[@]}" ) | sort -u; echo "${1}" ) \
 		| md5sum | cut -d' ' -f 1
 }
 
@@ -435,7 +450,7 @@ fingerprint_image()
 	display_alert "Fingerprinting"
 	cat <<-EOF > "${1}"
 	--------------------------------------------------------------------------------
-	Title:			Armbian $REVISION ${BOARD^} $DISTRIBUTION $RELEASE $BRANCH
+	Title:			${VENDOR} $REVISION ${BOARD^} $DISTRIBUTION $RELEASE $BRANCH
 	Kernel:			Linux $VER
 	Build date:		$(date +'%d.%m.%Y')
 	Maintainer:		$MAINTAINER <$MAINTAINERMAIL>
@@ -447,28 +462,27 @@ fingerprint_image()
 	EOF
 
 	if [ -n "$2" ]; then
-	cat <<-EOF >> "${1}"
-	--------------------------------------------------------------------------------
-	Partitioning configuration:
-	Root partition type: $ROOTFS_TYPE
-	Boot partition type: ${BOOTFS_TYPE:-(none)}
-	User provided boot partition size: ${BOOTSIZE:-0}
-	Offset: $OFFSET
-	CPU configuration: $CPUMIN - $CPUMAX with $GOVERNOR
-	--------------------------------------------------------------------------------
-	Verify GPG signature:
-	gpg --verify $2.img.asc
+		cat <<-EOF >> "${1}"
+		--------------------------------------------------------------------------------
+		Partitioning configuration: $IMAGE_PARTITION_TABLE offset: $OFFSET
+		Boot partition type: ${BOOTFS_TYPE:-(none)} ${BOOTSIZE:+"(${BOOTSIZE} MB)"}
+		Root partition type: $ROOTFS_TYPE ${FIXED_IMAGE_SIZE:+"(${FIXED_IMAGE_SIZE} MB)"}
 
-	Verify image file integrity:
-	sha256sum --check $2.img.sha
+		CPU configuration: $CPUMIN - $CPUMAX with $GOVERNOR
+		--------------------------------------------------------------------------------
+		Verify GPG signature:
+		gpg --verify $2.img.asc
 
-	Prepare SD card (four methodes):
-	zcat $2.img.gz | pv | dd of=/dev/mmcblkX bs=1M
-	dd if=$2.img of=/dev/mmcblkX bs=1M
-	balena-etcher $2.img.gz -d /dev/mmcblkX
-	balena-etcher $2.img -d /dev/mmcblkX
-	EOF
-        fi
+		Verify image file integrity:
+		sha256sum --check $2.img.sha
+
+		Prepare SD card (four methodes):
+		zcat $2.img.gz | pv | dd of=/dev/mmcblkX bs=1M
+		dd if=$2.img of=/dev/mmcblkX bs=1M
+		balena-etcher $2.img.gz -d /dev/mmcblkX
+		balena-etcher $2.img -d /dev/mmcblkX
+		EOF
+	fi
 
 	cat <<-EOF >> "${1}"
 	--------------------------------------------------------------------------------
@@ -1279,7 +1293,7 @@ download_and_verify()
 	if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
 		display_alert "Timeout from $server" "retrying" "info"
 		server="https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/"
-		
+
 		# switch to another china mirror if tuna timeouts
 		timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename} 2>&1 >/dev/null
 		if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
@@ -1287,7 +1301,7 @@ download_and_verify()
 			server="https://mirrors.bfsu.edu.cn/armbian-releases/"
 		fi
 	fi
-	
+
 
 	# check if file exists on remote server before running aria2 downloader
 	[[ ! `timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename}` ]] && return

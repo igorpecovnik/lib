@@ -12,13 +12,19 @@
 # common options
 # daily beta build contains date in subrevision
 #if [[ $BETA == yes && -z $SUBREVISION ]]; then SUBREVISION="."$(date --date="tomorrow" +"%j"); fi
-REVISION=$(cat "${SRC}"/VERSION)"$SUBREVISION" # all boards have same revision
+if [ -f $USERPATCHES_PATH/VERSION ]; then
+  REVISION=$(cat "${USERPATCHES_PATH}"/VERSION)"$SUBREVISION" # all boards have same revision
+else
+  REVISION=$(cat "${SRC}"/VERSION)"$SUBREVISION" # all boards have same revision
+fi
+[[ -z $VENDOR ]] && VENDOR="Armbian"
 [[ -z $ROOTPWD ]] && ROOTPWD="1234" # Must be changed @first login
 [[ -z $MAINTAINER ]] && MAINTAINER="Igor Pecovnik" # deb signature
 [[ -z $MAINTAINERMAIL ]] && MAINTAINERMAIL="igor.pecovnik@****l.com" # deb signature
 TZDATA=$(cat /etc/timezone) # Timezone for target is taken from host or defined here.
 USEALLCORES=yes # Use all CPU cores for compiling
 HOSTRELEASE=$(cat /etc/os-release | grep VERSION_CODENAME | cut -d"=" -f2)
+[[ -z $HOSTRELEASE ]] && HOSTRELEASE=$(cut -d'/' -f1 /etc/debian_version)
 [[ -z $EXIT_PATCHING_ERROR ]] && EXIT_PATCHING_ERROR="" # exit patching if failed
 [[ -z $HOST ]] && HOST="$BOARD" # set hostname to the board
 cd "${SRC}" || exit
@@ -486,10 +492,11 @@ DEBOOTSTRAP_COMPONENTS="${DEBOOTSTRAP_COMPONENTS// /,}"
 PACKAGE_LIST="$(one_line aggregate_all_cli "packages" " ")"
 PACKAGE_LIST_ADDITIONAL="$(one_line aggregate_all_cli "packages.additional" " ")"
 
-echo "DEBOOTSTRAP LIST : ${DEBOOTSTRAP_LIST}" >> "${DEST}"/debug/output.log
+echo "DEBOOTSTRAP_LIST : ${DEBOOTSTRAP_LIST}" >> "${DEST}"/debug/output.log
 echo "DEBOOTSTRAP_COMPONENTS : ${DEBOOTSTRAP_COMPONENTS}" >> "${DEST}"/debug/output.log
-echo "CLI PACKAGE_LIST : ${PACKAGE_LIST}" >> "${DEST}"/debug/output.log
-echo "CLI PACKAGE_LIST_ADDITIONAL : ${PACKAGE_LIST_ADDITIONAL}" >> "${DEST}"/debug/output.log
+echo "PACKAGE_LIST : ${PACKAGE_LIST}" >> "${DEST}"/debug/output.log
+echo "PACKAGE_LIST_ADDITIONAL : ${PACKAGE_LIST_ADDITIONAL}" >> "${DEST}"/debug/output.log
+echo "PACKAGE_LIST_UNINSTALL : ${PACKAGE_LIST_UNINSTALL}" >> "${DEST}"/debug/output.log
 
 # Dependent desktop packages
 # Myy : Sources packages from file here
@@ -499,14 +506,6 @@ if [[ $BUILD_DESKTOP == "yes" ]]; then
 	PACKAGE_LIST_DESKTOP+="$(one_line aggregate_all_desktop "packages" " ")"
 	echo "Groups selected ${DESKTOP_APPGROUPS_SELECTED} -> PACKAGES : ${PACKAGE_LIST_DESKTOP}" >> "${DEST}"/debug/output.log
 fi
-
-display_alert "Deboostrap" >> "${DEST}"/debug/output.log
-display_alert "Components ${DEBOOTSTRAP_COMPONENTS}" >> "${DEST}"/debug/output.log
-display_alert "Packages ${DEBOOTSTRAP_LIST}" >> "${DEST}"/debug/output.log
-display_alert "----" >> "${DEST}"/debug/output.log
-display_alert "CLI packages" >> "${DEST}"/debug/output.log
-display_alert "Standard : ${PACKAGE_LIST}" >> "${DEST}"/debug/output.log
-display_alert "Additional : ${PACKAGE_LIST_ADDITIONAL}" >> "${DEST}"/debug/output.log
 
 DEBIAN_MIRROR='deb.debian.org/debian'
 DEBIAN_SECURTY='security.debian.org/'
@@ -574,19 +573,16 @@ aggregate_all_desktop "packages.uninstall" " "
 PACKAGE_LIST_UNINSTALL="$(cleanup_list aggregated_content)"
 unset aggregated_content
 
-display_alert "PACKAGE_MAIN_LIST : ${PACKAGE_MAIN_LIST}" >> "${DEST}"/debug/output.log
-display_alert "PACKAGE_LIST : ${PACKAGE_LIST}" >> "${DEST}"/debug/output.log
-display_alert "PACKAGE_LIST_RM : ${PACKAGE_LIST_RM}" >> "${DEST}"/debug/output.log
-display_alert "PACKAGE_LIST_UNINSTALL : ${PACKAGE_LIST_UNINSTALL}" >> "${DEST}"/debug/output.log
 
 if [[ -n $PACKAGE_LIST_RM ]]; then
-	display_alert "Remove filter : $(tr ' ' '|' <<< ${PACKAGE_LIST_RM})"
+	display_alert "Package remove list ${PACKAGE_LIST_RM}"
 	# Turns out that \b can be tricked by dashes.
 	# So if you remove mesa-utils but still want to install "mesa-utils-extra"
 	# a "\b(mesa-utils)\b" filter will convert "mesa-utils-extra" to "-extra".
 	# \W is not tricked by this but consumes the surrounding spaces, so we
 	# replace the occurence by one space, to avoid sticking the next word to
 	# the previous one after consuming the spaces.
+	DEBOOTSTRAP_LIST=$(sed -r "s/\W($(tr ' ' '|' <<< ${PACKAGE_LIST_RM}))\W/ /g" <<< " ${DEBOOTSTRAP_LIST} ")
 	PACKAGE_LIST=$(sed -r "s/\W($(tr ' ' '|' <<< ${PACKAGE_LIST_RM}))\W/ /g" <<< " ${PACKAGE_LIST} ")
 	PACKAGE_MAIN_LIST=$(sed -r "s/\W($(tr ' ' '|' <<< ${PACKAGE_LIST_RM}))\W/ /g" <<< " ${PACKAGE_MAIN_LIST} ")
 	if [[ $BUILD_DESKTOP == "yes" ]]; then
@@ -598,13 +594,16 @@ if [[ -n $PACKAGE_LIST_RM ]]; then
 
 	# Removing double spaces... AGAIN, since we might have used a sed on them
 	# Do not quote the variables. This would defeat the trick.
+	DEBOOTSTRAP_LIST="$(echo ${DEBOOTSTRAP_LIST})"
 	PACKAGE_LIST="$(echo ${PACKAGE_LIST})"
 	PACKAGE_MAIN_LIST="$(echo ${PACKAGE_MAIN_LIST})"
 fi
 
-display_alert "After removal of packages.remove packages" >> "${DEST}"/debug/output.log
-display_alert "PACKAGE_MAIN_LIST : \"${PACKAGE_MAIN_LIST}\"" >> "${DEST}"/debug/output.log
-display_alert "PACKAGE_LIST : \"${PACKAGE_LIST}\"" >> "${DEST}"/debug/output.log
+display_alert "Deboostrap components ${DEBOOTSTRAP_COMPONENTS}"
+display_alert "Deboostrap packages ${DEBOOTSTRAP_LIST}"
+display_alert "Packages ${PACKAGE_LIST}"
+
+echo "PACKAGE_MAIN_LIST : ${PACKAGE_MAIN_LIST}" >> "${DEST}"/debug/output.log
 
 # Give the option to configure DNS server used in the chroot during the build process
 [[ -z $NAMESERVER ]] && NAMESERVER="1.0.0.1" # default is cloudflare alternate
@@ -652,12 +651,9 @@ Repository: $BOOTSOURCE
 Branch: $BOOTBRANCH
 Config file: $BOOTCONFIG
 
-Partitioning configuration:
-Root partition type: $ROOTFS_TYPE
-Boot partition type: ${BOOTFS_TYPE:-(none)}
-User provided boot partition size: ${BOOTSIZE:-0}
-Offset: $OFFSET
+Partitioning configuration: $IMAGE_PARTITION_TABLE offset: $OFFSET
+Boot partition type: ${BOOTFS_TYPE:-(none)} ${BOOTSIZE:+"(${BOOTSIZE} MB)"}
+Root partition type: $ROOTFS_TYPE ${FIXED_IMAGE_SIZE:+"(${FIXED_IMAGE_SIZE} MB)"}
 
-CPU configuration:
-$CPUMIN - $CPUMAX with $GOVERNOR
+CPU configuration: $CPUMIN - $CPUMAX with $GOVERNOR
 EOF
