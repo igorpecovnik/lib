@@ -119,30 +119,31 @@ create_rootfs_cache()
 		local cache_fname=${SRC}/cache/rootfs/${cache_name}
 		local display_name=${RELEASE}-${cache_type}-${ARCH}.${packages_hash:0:3}...${packages_hash:29}.tar.lz4
 
-		if [[ -f $cache_fname && -f $cache_fname.aria2 ]]; then
+		if [[ -f ${cache_fname} && -f ${cache_fname}.aria2 ]]; then
 			rm ${cache_fname}*
+			display_alert "Partially downloaded file. Re-start."
 			download_and_verify "_rootfs" "$cache_name"
 		fi
 
 		display_alert "Checking for local cache" "$display_name" "info"
-		if [[ -f $cache_fname && -n "$ROOT_FS_CREATE_ONLY" ]]; then
+
+		if [[ -f ${cache_fname} && -n "$ROOT_FS_CREATE_ONLY" ]]; then
 			touch $cache_fname.current
+			break
+		elif [[ -f ${cache_fname} ]]; then
 			break
 		else
 			display_alert "searching on servers"
 			download_and_verify "_rootfs" "$cache_name"
 		fi
 
-		if [[ -f $cache_fname ]]; then
-			touch $cache_fname.current
-			break
-		else
+		if [[ ! -f $cache_fname ]]; then
 			display_alert "not found: try to use previous cache"
 		fi
 
 	done
 
-	if [[ -f $cache_fname && ! -f $cache_fname.aria2 && "$ROOT_FS_CREATE_ONLY" != "force" ]]; then
+	if [[ -f $cache_fname && ! -f $cache_fname.aria2 ]]; then
 
 		# speed up checking
 		if [[ -n "$ROOT_FS_CREATE_ONLY" ]]; then

@@ -19,6 +19,7 @@
 
 
 if [[ $BETA == "yes" ]];  then STABILITY="beta";	else STABILITY="stable"; fi
+if [[ $BETA == "yes" ]]; then upload_subdir=nightly; else upload_subdir="archive"; fi
 if [[ $MAKE_ALL_BETA == "yes" ]]; then STABILITY="stable"; fi
 if [[ -z $KERNEL_ONLY ]]; then KERNEL_ONLY="yes"; fi
 if [[ -z $MULTITHREAD ]]; then MULTITHREAD=0; fi
@@ -73,7 +74,6 @@ pack_upload ()
 
 	display_alert "Signing" "Please wait!" "info"
 	local version="Armbian_${REVISION}_${BOARD^}_${RELEASE}_${BRANCH}_${VER/-$LINUXFAMILY/}${DESKTOP_ENVIRONMENT:+_$DESKTOP_ENVIRONMENT}"
-	local subdir="archive"
 	compression_type=""
 
 	[[ $BUILD_DESKTOP == yes ]] && version=${version}_desktop
@@ -140,13 +140,11 @@ build_main ()
 	# shellcheck source=/dev/null
 	source "$USERPATCHES_PATH"/lib.config
 	# build images which we do pack or kernel
-	local upload_image upload_subdir
+	local upload_image
 	upload_image="Armbian_$(cat "${SRC}"/VERSION)_${BOARD^}_${RELEASE}_${BRANCH}_*${VER/-$LINUXFAMILY/}"
-	upload_subdir="archive"
 
 	[[ $BUILD_DESKTOP == yes ]] && upload_image=${upload_image}_desktop
 	[[ $BUILD_MINIMAL == yes ]] && upload_image=${upload_image}_minimal
-	[[ $BETA == yes ]] && local upload_subdir=nightly
 
 	touch "/run/armbian/Armbian_${BOARD^}_${BRANCH}_${RELEASE}_${DESKTOP_ENVIRONMENT}_${BUILD_DESKTOP}_${BUILD_MINIMAL}.pid";
 
@@ -393,13 +391,17 @@ function build_all()
 				exit
 			else
 				((n+=1))
-				# In dryrun it only prints out what will be build
-                                printf "%s\t%-32s\t%-8s\t%-14s\t%-6s\t%-6s\t%-6s\t%-6s\n" "${n}." \
-                                "$BOARD (${BOARDFAMILY})" "${BRANCH}" "${RELEASE}" "${DESKTOP_ENVIRONMENT}" "${BUILD_DESKTOP}" "${BUILD_MINIMAL}" "${DESKTOP_APPGROUPS_SELECTED}"
+				# In dryrun it only prints out what will be build but also color green if file already exists
+				FIND="$SRC/output/images/$BOARD/$upload_subdir/Armbian_$(cat "${SRC}"/VERSION)_${BOARD^}_${RELEASE}_${BRANCH}"
+				if ls $FIND* 1> /dev/null 2>&1; then
+					echo -ne "\e[0;92m"
+				else
+					echo -ne "\x1B[0m"
+				fi
+				printf "%s\t%-32s\t%-8s\t%-14s\t%-6s\t%-6s\t%-6s\t%-6s\n" "${n}." \
+				"$BOARD (${BOARDFAMILY})" "${BRANCH}" "${RELEASE}" "${DESKTOP_ENVIRONMENT}" "${BUILD_DESKTOP}" "${BUILD_MINIMAL}" "${DESKTOP_APPGROUPS_SELECTED}"
 			fi
-
-fi
-
+		fi
 		fi
 
 	# at which image to stop
@@ -464,6 +466,8 @@ do
 	sleep 5
 done
 
+# display what we will build
+build_all "dryrun"
 
 fi
 
